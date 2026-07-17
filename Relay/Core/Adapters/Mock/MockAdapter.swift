@@ -74,9 +74,7 @@ final class MockAdapter: DeviceAdapter, @unchecked Sendable {
     }
 
     func checkHealth(_ device: Device) async -> ConnectionStatus {
-        lock.lock()
-        let override = statusOverrides[device.adapterDeviceID]
-        lock.unlock()
+        let override = lock.withLock { statusOverrides[device.adapterDeviceID] }
 
         if let override { return override }
 
@@ -119,8 +117,6 @@ final class MockAdapter: DeviceAdapter, @unchecked Sendable {
     /// `MockScenarios`'s static mapping — used by `RelayUITests` to simulate a device going
     /// offline mid-session.
     func setStatusOverride(_ status: ConnectionStatus?, forDeviceID deviceID: String) {
-        lock.lock()
-        statusOverrides[deviceID] = status
-        lock.unlock()
+        lock.withLock { statusOverrides[deviceID] = status }
     }
 }
