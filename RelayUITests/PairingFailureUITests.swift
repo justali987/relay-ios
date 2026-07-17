@@ -19,7 +19,7 @@ final class PairingFailureUITests: XCTestCase {
         app.buttons["Find devices"].tap()
 
         XCTAssertTrue(app.staticTexts["Office Display"].waitForExistence(timeout: 5))
-        app.buttons["Add"].element(boundBy: 2).tap() // Office Display is the third discovered device
+        app.buttons.matching(identifier: "Add").element(boundBy: 2).tap() // Office Display is the third discovered device
 
         XCTAssertTrue(app.textFields["PIN"].waitForExistence(timeout: 5))
         app.textFields["PIN"].tap()
@@ -41,7 +41,7 @@ final class PairingFailureUITests: XCTestCase {
         app.buttons["Find devices"].tap()
 
         XCTAssertTrue(app.staticTexts["Garage TV"].waitForExistence(timeout: 5))
-        app.buttons["Add"].element(boundBy: 3).tap() // Garage TV is the fourth discovered device
+        app.buttons.matching(identifier: "Add").element(boundBy: 3).tap() // Garage TV is the fourth discovered device
 
         XCTAssertTrue(app.staticTexts["Couldn't reach Garage TV. Make sure it's powered on and connected."].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Try again"].exists)
