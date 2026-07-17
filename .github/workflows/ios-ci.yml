@@ -1,0 +1,91 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    # Only free-tier requirement: a macOS runner. No Apple Developer account, certificates, or
+    # provisioning profiles are needed — everything below targets the iOS Simulator, which never
+    # requires code signing. See project.yml's CODE_SIGNING_ALLOWED/REQUIRED settings.
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.2"
+
+      - name: Show Xcode/Swift versions
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project from project.yml
+        run: xcodegen generate
+
+      - name: List available simulators (debugging aid if the destination below ever stops matching)
+        run: xcrun simctl list devices available
+
+      - name: Build (Relay app target)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Relay.xcodeproj \
+            -scheme Relay \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Run unit tests (RelayTests)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Relay.xcodeproj \
+            -scheme Relay \
+            -only-testing:RelayTests \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            CODE_SIGNING_ALLOWED=NO
+
+  ui-tests:
+    # Separate, manually-triggered job — UI automation is slower and more failure-prone than the
+    # unit-test loop above, so it doesn't run on every push. Trigger it from the Actions tab
+    # ("Run workflow") when you specifically want RelayUITests to run.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.2"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project from project.yml
+        run: xcodegen generate
+
+      - name: Run UI tests (RelayUITests)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Relay.xcodeproj \
+            -scheme Relay \
+            -only-testing:RelayUITests \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            CODE_SIGNING_ALLOWED=NO

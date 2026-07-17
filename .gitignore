@@ -1,0 +1,29 @@
+### Xcode / iOS ###
+# Relay.xcodeproj and the generated Info.plist are produced by `xcodegen generate` from
+# project.yml — see docs/07-implementation-plan.md and the CI workflow. Not checked in, so there's
+# nothing to conflict/drift when project.yml changes.
+Relay.xcodeproj/
+Generated/
+
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## User settings
+xcuserdata/
+
+## Obj-C/Swift specific
+*.moved-aside
+
+## Swift Package Manager
+.swiftpm/
+.build/
+
+## CocoaPods (not used, kept for safety if ever introduced)
+Pods/
+
+## Misc
+.DS_Store
