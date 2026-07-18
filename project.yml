@@ -77,9 +77,14 @@ schemes:
         RelayTests: [test]
         RelayUITests: [test]
     test:
-      # Unit tests only in the default test action — fast, deterministic, no simulator UI
-      # automation. Run RelayUITests via a separate `xcodebuild test -only-testing:RelayUITests`
-      # invocation when explicitly wanted; see the CI workflow. (RelayUITests' own launch
-      # arguments, e.g. `-UITest_ResetState`, are set in code via `XCUIApplication.launchArguments`.)
+      # Both test targets are members of the scheme's test action so either can be selected with
+      # `xcodebuild test -only-testing:<target>`. The CI workflow uses that flag to keep the two
+      # kinds separate: the push job runs `-only-testing:RelayTests` (fast, deterministic), and the
+      # manual workflow_dispatch job runs `-only-testing:RelayUITests` (slower simulator UI
+      # automation). A target must be listed here to be `-only-testing`-selectable at all — leaving
+      # RelayUITests out is what made the UI job fail with "isn't a member of ... the scheme".
+      # (RelayUITests' own launch arguments, e.g. `-UITest_ResetState`, are set in code via
+      # `XCUIApplication.launchArguments`.)
       targets:
         - RelayTests
+        - RelayUITests
