@@ -29,12 +29,26 @@ final class AccessibilityUITests: XCTestCase {
         app.launch()
         app.buttons["Find devices"].tap()
 
+        // A StatusPill only renders once a device is paired (on the Home card / Remote screen) —
+        // the discovery list itself shows no status. Pair the Living Room device and assign a room
+        // so a pill actually exists to inspect.
         XCTAssertTrue(app.staticTexts["Living Room TV"].waitForExistence(timeout: 5))
-        // `StatusPill` combines into a single accessibility element labeled with the status name
-        // (see DesignSystem/Components/StatusPill.swift) — VoiceOver users get "Connected" rather
-        // than a dot + unlabeled caption read separately.
-        let connectedPill = app.otherElements["Connected"]
-        XCTAssertTrue(connectedPill.exists || app.staticTexts["Connected"].exists)
+        app.buttons.matching(identifier: "Add").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Assign Room"].waitForExistence(timeout: 5))
+        app.buttons["New room"].tap()
+        app.textFields["e.g. Living Room"].tap()
+        app.textFields["e.g. Living Room"].typeText("Living Room")
+        app.buttons["Done"].tap()
+
+        // On the Home room card the primary device's StatusPill combines into a single
+        // accessibility element labeled with the status name (see
+        // DesignSystem/Components/StatusPill.swift) — VoiceOver users get "Connected" rather than a
+        // dot + unlabeled caption read separately. Match any element type so the assertion is
+        // robust to the pill surfacing as a staticText or a combined otherElement.
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
+        let connected = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Connected")).firstMatch
+        XCTAssertTrue(connected.waitForExistence(timeout: 5))
     }
 
     func testDPadControlsHaveDescriptiveVoiceOverLabels() {
