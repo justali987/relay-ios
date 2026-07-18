@@ -1,0 +1,80 @@
+# Cloud-Mac build + TestFlight pipeline for Relay (Codemagic).
+#
+# Why Codemagic: it's configured by this file plus a web UI, so no local Mac is needed to set it up
+# — the right fit when you're on Windows. It rents a macOS VM, generates the Xcode project from
+# project.yml, signs with your App Store Connect API key, and uploads to TestFlight.
+#
+# BEFORE the first build works, you must do the one-time setup in docs/09-cloud-build-setup.md:
+#   1. Buy the Apple Developer Program membership.
+#   2. Create an App Store Connect API key and add it to Codemagic (Team settings → Integrations).
+#   3. Create the app record in App Store Connect for bundle id com.relay.app.Relay.
+#   4. Connect this GitHub repo to Codemagic.
+# Until those exist, this file is correct but has nothing to authenticate with.
+
+workflows:
+  ios-testflight:
+    name: Relay iOS · TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    integrations:
+      # Name of the App Store Connect API key exactly as you saved it in Codemagic
+      # (Team settings → Integrations → Apple → App Store Connect). Rename here if you used another.
+      app_store_connect: RelayASCKey
+
+    environment:
+      xcode: latest
+      ios_signing:
+        # Codemagic fetches/creates the distribution certificate and provisioning profile for this
+        # bundle id using the API key above — no manual cert wrangling on your end.
+        distribution_type: app_store
+        bundle_identifier: com.relay.app.Relay
+      vars:
+        BUNDLE_ID: "com.relay.app.Relay"
+        XCODE_PROJECT: "Relay.xcodeproj"
+        XCODE_SCHEME: "Relay"
+
+    triggering:
+      # Manual by default so you control when a TestFlight build is cut. Flip to a push/tag trigger
+      # once you're comfortable (uncomment the events block).
+      # events:
+      #   - push
+      # branch_patterns:
+      #   - pattern: main
+      #     include: true
+      cancel_previous_builds: true
+
+    scripts:
+      - name: Install XcodeGen and generate the project
+        script: |
+          set -e
+          brew install xcodegen
+          xcodegen generate
+      - name: Set build number to the Codemagic build counter
+        script: |
+          # Gives every upload a unique, increasing CFBundleVersion (TestFlight rejects duplicates).
+          cd "$CM_BUILD_DIR"
+          agvtool new-version -all "$(($BUILD_NUMBER))" || true
+      - name: Set up code signing for the archive
+        script: |
+          xcode-project use-profiles
+      - name: Build a signed IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Uploads to TestFlight. It does NOT auto-submit to the App Store — you promote a build to
+        # external testers / submit for review yourself from App Store Connect.
+        submit_to_testflight: true
+        # Optional: auto-add the new build to a named external tester group once beta review clears.
+        # beta_groups:
+        #   - Public Beta

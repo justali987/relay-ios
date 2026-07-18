@@ -39,14 +39,16 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.relay.app.Relay
         SWIFT_VERSION: "6.0"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        # iPhone-only for the initial launch ("iphone only for now"). Change to "1,2" to re-enable
+        # iPad — the layouts are already adaptive, so it's a one-line flip (plus iPad screenshots).
+        TARGETED_DEVICE_FAMILY: "1"
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
+        # Automatic signing; Codemagic manages the distribution cert/profile via the App Store
+        # Connect API key at archive time (see codemagic.yaml). Signing is NOT forced off here so
+        # the cloud-Mac archive can sign — the GitHub Actions simulator builds pass
+        # CODE_SIGNING_ALLOWED=NO on the xcodebuild command line instead (see ios-ci.yml).
         CODE_SIGN_STYLE: Automatic
-        # No team/signing required — CI builds and tests only against the iOS Simulator, which
-        # never needs a real Apple Developer certificate. See docs/07-implementation-plan.md.
-        CODE_SIGNING_ALLOWED: NO
-        CODE_SIGNING_REQUIRED: NO
 
   RelayTests:
     type: bundle.unit-test
