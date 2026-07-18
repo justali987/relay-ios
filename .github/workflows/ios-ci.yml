@@ -35,8 +35,8 @@ jobs:
       - name: Generate Xcode project from project.yml
         run: xcodegen generate
 
-      - name: List available simulators (debugging aid if the destination below ever stops matching)
-        run: xcrun simctl list devices available
+      - name: Boot an iPhone simulator and capture its UDID
+        run: ./scripts/boot-simulator.sh
 
       - name: Build (Relay app target)
         run: |
@@ -44,7 +44,7 @@ jobs:
           xcodebuild build \
             -project Relay.xcodeproj \
             -scheme Relay \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination "platform=iOS Simulator,id=$SIM_UDID" \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Run unit tests (RelayTests)
@@ -54,7 +54,7 @@ jobs:
             -project Relay.xcodeproj \
             -scheme Relay \
             -only-testing:RelayTests \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination "platform=iOS Simulator,id=$SIM_UDID" \
             CODE_SIGNING_ALLOWED=NO
 
   ui-tests:
@@ -80,6 +80,9 @@ jobs:
       - name: Generate Xcode project from project.yml
         run: xcodegen generate
 
+      - name: Boot an iPhone simulator and capture its UDID
+        run: ./scripts/boot-simulator.sh
+
       - name: Run UI tests (RelayUITests)
         run: |
           set -o pipefail
@@ -87,5 +90,5 @@ jobs:
             -project Relay.xcodeproj \
             -scheme Relay \
             -only-testing:RelayUITests \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination "platform=iOS Simulator,id=$SIM_UDID" \
             CODE_SIGNING_ALLOWED=NO
