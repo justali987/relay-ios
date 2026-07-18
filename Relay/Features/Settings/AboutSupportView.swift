@@ -17,9 +17,12 @@ struct AboutSupportView: View {
             }
 
             Section {
+                NavigationLink("Send Beta Feedback") { BetaFeedbackView() }
                 Button("Send Feedback") {
                     isFeedbackPresented = true
                 }
+            } footer: {
+                Text("On the beta? Beta Feedback captures your TV model and which commands work, so we can prioritize fixes by device.")
             }
 
             Section {

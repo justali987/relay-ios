@@ -84,14 +84,20 @@ final class AppState {
 
     // MARK: - Discovery
 
-    /// Fans discovery out across every registered adapter (mock included) and forwards each result
-    /// as it arrives, undeduplicated — the caller accumulates and runs `DiscoveryResult.merge` so
-    /// the incremental "populate as found" UX (docs/06-ux-screen-spec.md §2) isn't blocked on a
-    /// full merge pass.
+    /// Fans discovery out across the real protocol adapters and forwards each result as it arrives,
+    /// undeduplicated — the caller accumulates and runs `DiscoveryResult.merge` so the incremental
+    /// "populate as found" UX (docs/06-ux-screen-spec.md §2) isn't blocked on a full merge pass.
+    ///
+    /// The simulated `MockAdapter` is included ONLY when Demo Mode is on. In a normal install that
+    /// keeps fake "Living Room TV" devices out of a real user's discovery list; with Demo Mode on
+    /// (Settings, or forced under UI test) it surfaces them so the app — and App Review, which
+    /// can't reach real TVs — can exercise the whole flow without hardware.
     func discoverAllDevices() -> AsyncStream<DiscoveredDevice> {
-        AsyncStream { continuation in
+        let includeMock = settings.demoModeEnabled
+        return AsyncStream { continuation in
             let task = Task {
                 let adapters = await adapterRegistry.allAdapters
+                    .filter { $0.brand != .mock || includeMock }
                 await withTaskGroup(of: Void.self) { group in
                     for adapter in adapters {
                         group.addTask {

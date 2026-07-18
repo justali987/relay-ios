@@ -22,6 +22,7 @@ final class AppSettings {
         static let keyboardHistoryEnabled = "relay.keyboardHistoryEnabled"
         static let analyticsOptIn = "relay.analyticsOptIn"
         static let successfulSessionDates = "relay.successfulSessionDates"
+        static let demoModeEnabled = "relay.demoModeEnabled"
     }
 
     var hasCompletedOnboarding: Bool {
@@ -53,6 +54,15 @@ final class AppSettings {
     var simplifiedGuestMode: Bool {
         get { defaults.bool(forKey: Keys.simplifiedGuestMode) }
         set { defaults.set(newValue, forKey: Keys.simplifiedGuestMode) }
+    }
+
+    /// Off by default. When on, simulated devices appear in discovery so the app can be explored
+    /// without a real TV — a real user never sees mock devices, but App Review (which can't reach
+    /// hardware) and curious users can flip this on. Forced on under UI tests. See
+    /// `AppState.discoverAllDevices`.
+    var demoModeEnabled: Bool {
+        get { defaults.bool(forKey: Keys.demoModeEnabled) }
+        set { defaults.set(newValue, forKey: Keys.demoModeEnabled) }
     }
 
     /// Defaults to true; the user can disable keyboard-entry history from Privacy settings.

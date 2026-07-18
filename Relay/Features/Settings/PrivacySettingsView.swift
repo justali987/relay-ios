@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Diagnostics export (off by default, redacted, explicit consent) and analytics opt-in (off by
 /// default) — see docs/06-ux-screen-spec.md §11 and PRD trust commitments.
@@ -63,13 +62,4 @@ enum DiagnosticsExporter {
         return lines.joined(separator: "\n")
     }
 }
-
-private struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
+// `ShareSheet` now lives in DesignSystem/Components/ShareSheet.swift (shared with Beta Feedback).

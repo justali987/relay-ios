@@ -24,7 +24,14 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSLocalNetworkUsageDescription: "Relay finds and controls compatible devices on your home Wi-Fi. Nothing leaves your home."
+        # Shown in the system Local Network permission prompt (triggered by SSDP discovery + any
+        # Bonjour browse). Plain-language, per Apple TN3179 and App Review guidance — see
+        # docs/08-launch-runbook.md.
+        NSLocalNetworkUsageDescription: "Relay uses your local Wi-Fi to find and control compatible TVs in your home. Your commands stay on your network."
+        # Declare ONLY the Bonjour/mDNS service types the shipping build actually browses. Roku uses
+        # SSDP (no Bonjour entry needed); the Android TV adapter browses _androidtvremote2._tcp.
+        # Keep this list in sync with which adapters actually ship enabled — over-declaring is an
+        # App Review flag. Until the Android TV adapter ships, this can be trimmed further.
         NSBonjourServices:
           - _androidtvremote2._tcp
         ITSAppUsesNonExemptEncryption: false

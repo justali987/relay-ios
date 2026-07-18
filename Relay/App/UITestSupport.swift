@@ -15,5 +15,10 @@ enum UITestSupport {
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
         }
+
+        // The UI suite drives discovery against the mock devices, which now only appear when Demo
+        // Mode is on (so real users don't see them). Force it on for the test run, after the reset
+        // above has cleared defaults and before AppState reads them.
+        UserDefaults.standard.set(true, forKey: "relay.demoModeEnabled")
     }
 }
