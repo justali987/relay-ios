@@ -46,9 +46,11 @@ final class DeviceStoreTests: XCTestCase {
         let store = DeviceStore(fileURL: tempFileURL())
         let action = QuickAction(name: "Movie Night")
         await store.upsert(quickAction: action)
-        XCTAssertEqual((await store.allQuickActions()).count, 1)
+        let afterUpsert = await store.allQuickActions()
+        XCTAssertEqual(afterUpsert.count, 1)
 
         await store.deleteQuickAction(id: action.id)
-        XCTAssertTrue((await store.allQuickActions()).isEmpty)
+        let afterDelete = await store.allQuickActions()
+        XCTAssertTrue(afterDelete.isEmpty)
     }
 }
