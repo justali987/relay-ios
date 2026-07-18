@@ -32,7 +32,9 @@ final class MultiRoomUITests: XCTestCase {
 
         // Onboarding is complete; add a second room/device from the Home tab's own discovery entry.
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 5))
-        app.navigationBars.buttons["Add"].tap()
+        // The toolbar "+" button carries the accessibility label "Add room" (see RoomListView),
+        // not "Add" — the bare "Add" identifier belongs to the discovery rows' Add buttons.
+        app.navigationBars.buttons["Add room"].tap()
         app.alerts["New Room"].textFields["Room name"].typeText("Bedroom")
         app.alerts["New Room"].buttons["Add"].tap()
 

@@ -28,9 +28,16 @@ final class PairingFailureUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Incorrect PIN. Check the code shown on the TV."].waitForExistence(timeout: 5))
 
-        // Recovery: correct PIN should succeed on retry.
-        app.textFields["PIN"].tap()
-        app.textFields["PIN"].typeText("1234")
+        // Recovery: correct PIN should succeed on retry. The field still holds "0000" from the
+        // first attempt, and typeText appends — clear it first, or the value becomes "00001234"
+        // and pairing fails again.
+        let pinField = app.textFields["PIN"]
+        pinField.tap()
+        let existing = (pinField.value as? String) ?? ""
+        if !existing.isEmpty {
+            pinField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
+        }
+        pinField.typeText("1234")
         app.buttons["Pair"].tap()
 
         XCTAssertTrue(app.navigationBars["Assign Room"].waitForExistence(timeout: 5))

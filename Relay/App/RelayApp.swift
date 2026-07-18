@@ -2,10 +2,16 @@ import SwiftUI
 
 @main
 struct RelayApp: App {
-    @State private var appState = AppState()
+    @State private var appState: AppState
 
     init() {
+        // Order matters: the reset must run BEFORE AppState is constructed, because AppState's
+        // initializer reads `hasCompletedOnboarding` from UserDefaults. A stored-property
+        // initializer (`= AppState()`) would run before this init body, capturing the stale flag —
+        // so AppState is initialized here, explicitly after the reset. Without this, a UI test that
+        // completes onboarding pollutes the shared simulator's state for every later test.
         UITestSupport.resetStateIfRequested()
+        _appState = State(initialValue: AppState())
     }
 
     var body: some Scene {

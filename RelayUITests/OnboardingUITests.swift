@@ -54,9 +54,12 @@ final class OnboardingUITests: XCTestCase {
         let app = launchApp()
         app.buttons["Add a device manually"].tap()
 
-        XCTAssertTrue(app.staticTexts["Apple TV"].waitForExistence(timeout: 5))
-        app.staticTexts["Apple TV"].tap()
+        // Brand rows are SwiftUI Buttons, so their Text label collapses into the button element
+        // rather than being exposed as an independent staticText — match the button.
+        XCTAssertTrue(app.buttons["Apple TV"].waitForExistence(timeout: 5))
+        app.buttons["Apple TV"].tap()
 
-        XCTAssertTrue(app.staticTexts["Apple TV isn't controllable by Relay due to Apple's platform restrictions."].waitForExistence(timeout: 5))
+        let disclosure = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "platform restrictions")).firstMatch
+        XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
     }
 }
