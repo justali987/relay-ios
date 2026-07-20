@@ -39,6 +39,9 @@ struct DeviceCardView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityHint("Opens the remote for \(device.name)")
+        // `device.name` is untrusted device-supplied text — `Text(verbatim:)` avoids the
+        // Markdown/LocalizedStringKey parsing a plain string-interpolation would get (see
+        // PairingSheet.swift for the full explanation).
+        .accessibilityHint(Text(verbatim: "Opens the remote for \(device.name)"))
     }
 }

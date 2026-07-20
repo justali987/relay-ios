@@ -25,7 +25,12 @@ actor KeychainTokenStore {
 
         var newItem = query
         newItem[kSecValueData as String] = data
-        newItem[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        // `ThisDeviceOnly` keeps pairing tokens out of encrypted device backups (they'd otherwise
+        // restore onto a new device where they're meaningless — the token only makes sense to the
+        // specific TV it was issued by). `AfterFirstUnlock` (not `WhenUnlocked`) is still correct:
+        // Relay does background health checks that need to read tokens without the device being
+        // freshly unlocked.
+        newItem[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 
         let status = SecItemAdd(newItem as CFDictionary, nil)
         guard status == errSecSuccess else {

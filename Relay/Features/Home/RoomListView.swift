@@ -5,6 +5,9 @@ struct RoomListView: View {
     @Environment(AppState.self) private var appState
     @State private var isAddingRoom = false
     @State private var newRoomName = ""
+    @State private var renamingRoom: Room?
+    @State private var renameText = ""
+    @State private var deletingRoom: Room?
 
     private let columns = [GridItem(.adaptive(minimum: 160), spacing: RelaySpacing.md)]
 
@@ -26,6 +29,19 @@ struct RoomListView: View {
                             RoomCard(room: room)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button {
+                                renamingRoom = room
+                                renameText = room.name
+                            } label: {
+                                Label("Rename", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) {
+                                deletingRoom = room
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                 }
                 .padding(RelaySpacing.md)
@@ -53,6 +69,38 @@ struct RoomListView: View {
                 }
             }
             .disabled(newRoomName.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .alert("Rename Room", isPresented: Binding(
+            get: { renamingRoom != nil },
+            set: { if !$0 { renamingRoom = nil } }
+        )) {
+            TextField("Room name", text: $renameText)
+            Button("Cancel", role: .cancel) { renamingRoom = nil }
+            Button("Save") {
+                if let room = renamingRoom {
+                    Task { await appState.renameRoom(room.id, to: renameText) }
+                }
+                renamingRoom = nil
+            }
+            .disabled(renameText.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .confirmationDialog(
+            "Delete \(deletingRoom?.name ?? "Room")?",
+            isPresented: Binding(
+                get: { deletingRoom != nil },
+                set: { if !$0 { deletingRoom = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete Room", role: .destructive) {
+                if let room = deletingRoom {
+                    Task { await appState.deleteRoom(room.id) }
+                }
+                deletingRoom = nil
+            }
+            Button("Cancel", role: .cancel) { deletingRoom = nil }
+        } message: {
+            Text("Devices in this room aren't deleted — they'll show as unassigned.")
         }
     }
 }

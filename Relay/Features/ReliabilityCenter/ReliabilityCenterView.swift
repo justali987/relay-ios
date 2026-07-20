@@ -9,6 +9,8 @@ struct ReliabilityCenterView: View {
 
     @State private var diagnostics: DeviceDiagnostics?
     @State private var isRefreshing = false
+    @State private var isWaking = false
+    @State private var wakeErrorMessage: String?
 
     private var device: Device? {
         appState.devices.first { $0.id == deviceID }
@@ -26,6 +28,24 @@ struct ReliabilityCenterView: View {
                     }
                     if let lastResponse = diagnostics?.lastResponseAt ?? device.lastResponseAt {
                         LabeledContent("Last response", value: lastResponse.formatted(date: .omitted, time: .shortened))
+                    }
+
+                    if (diagnostics?.status ?? device.status) == .sleeping {
+                        Button {
+                            Task { await wake(device) }
+                        } label: {
+                            if isWaking {
+                                ProgressView()
+                            } else {
+                                Text("Wake Device")
+                            }
+                        }
+                        .disabled(isWaking)
+                        if let wakeErrorMessage {
+                            Text(wakeErrorMessage)
+                                .font(.relayCaption)
+                                .foregroundStyle(Color.relayStatusUnavailable)
+                        }
                     }
                 }
 
@@ -60,9 +80,12 @@ struct ReliabilityCenterView: View {
                     Button("Re-pair Device") {
                         Task { await appState.markNeedsRepairing(device.id) }
                     }
-                    Text("Marks this device as needing to be paired again. Go to Settings > Devices & Pairing, or Home > Add manually, to finish re-pairing.")
-                        .font(.relayCaption)
-                        .foregroundStyle(Color.relayTextSecondary)
+                    Text(
+                        "Marks this device as needing to be paired again. Go to Settings > Devices & " +
+                        "Pairing, or Home > Add manually, to finish re-pairing."
+                    )
+                    .font(.relayCaption)
+                    .foregroundStyle(Color.relayTextSecondary)
 
                     NavigationLink("Report a Compatibility Issue") {
                         CompatibilityFeedbackView(device: device)
@@ -97,6 +120,21 @@ struct ReliabilityCenterView: View {
         }
         diagnostics = await adapter.diagnostics(for: device)
         isRefreshing = false
+    }
+
+    private func wake(_ device: Device) async {
+        isWaking = true
+        wakeErrorMessage = nil
+        do {
+            try await appState.wake(deviceID: device.id)
+        } catch {
+            // Network wake is inherently unreliable across brands/models (see
+            // docs/03-feasibility-warnings.md) — this is an expected outcome, not a bug, so the
+            // copy explains rather than apologizes.
+            wakeErrorMessage = "Couldn't wake this device. It may need a network standby setting enabled on the TV itself."
+        }
+        await refresh()
+        isWaking = false
     }
 }
 

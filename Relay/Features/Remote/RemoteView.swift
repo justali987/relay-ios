@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import StoreKit
 
 /// The core control screen. Every control below is rendered only if the connected device's probed
 /// capabilities include it — no dead buttons. Taps register optimistically; a failure briefly
@@ -7,6 +8,7 @@ import UIKit
 /// docs/06-ux-screen-spec.md §6.
 struct RemoteView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.requestReview) private var requestReview
     let deviceID: UUID
 
     @State private var controlMode: ControlMode = .dpad
@@ -31,7 +33,28 @@ struct RemoteView: View {
             }
         }
         .background(Color.remoteBackground.ignoresSafeArea())
-        .task { await appState.refreshStatus(for: deviceID) }
+        .task {
+            await appState.refreshStatus(for: deviceID)
+            // Once per visit (not per command — see `AppState.markRemoteScreenVisited`), and never
+            // during setup or an error state, per docs/06-ux-screen-spec.md's review-prompt rule.
+            if appState.markRemoteScreenVisited() {
+                requestReview()
+            }
+        }
+    }
+
+    /// Reduced remote for Settings ▸ Accessibility ▸ Simplified/Guest Mode: power, volume,
+    /// navigation, and home/back only. Hides the keyboard, menu, color keys, channel controls,
+    /// favorites, and input selection — not because the device lacks them, but because guest mode
+    /// asks for a deliberately smaller surface. See `AppSettings.simplifiedGuestMode`.
+    private var isSimplified: Bool {
+        appState.settings.simplifiedGuestMode
+    }
+
+    /// Mirrors the linear control rows for left-handed use. Applied only to those rows (not the
+    /// D-pad/touchpad navigation area — see `AppSettings.leftHandedLayout`).
+    private var leftHandedDirection: LayoutDirection {
+        appState.settings.leftHandedLayout ? .rightToLeft : .leftToRight
     }
 
     @ViewBuilder
@@ -40,8 +63,9 @@ struct RemoteView: View {
             VStack(spacing: RelaySpacing.xl) {
                 header(for: device)
 
-                if device.supports(.powerOn) || device.supports(.inputSelect) {
+                if device.supports(.powerOn) || (!isSimplified && device.supports(.inputSelect)) {
                     topRow(for: device)
+                        .environment(\.layoutDirection, leftHandedDirection)
                 }
 
                 if device.supports(.dpad) || device.supports(.touchpad) {
@@ -50,29 +74,33 @@ struct RemoteView: View {
 
                 if device.supports(.playback) {
                     playbackRow(for: device)
+                        .environment(\.layoutDirection, leftHandedDirection)
                 }
 
                 if device.supports(.volume) {
                     volumeRow(for: device)
+                        .environment(\.layoutDirection, leftHandedDirection)
                 }
 
-                if device.supports(.homeButton) || device.supports(.backButton) || device.supports(.menuButton) {
+                if device.supports(.homeButton) || device.supports(.backButton) || (!isSimplified && device.supports(.menuButton)) {
                     homeBackRow(for: device)
+                        .environment(\.layoutDirection, leftHandedDirection)
                 }
 
-                if device.supports(.colorKeys) {
+                if !isSimplified && device.supports(.colorKeys) {
                     colorKeyRow(for: device)
+                        .environment(\.layoutDirection, leftHandedDirection)
                 }
 
-                if device.supports(.channelControl) {
+                if !isSimplified && device.supports(.channelControl) {
                     channelPad(for: device)
                 }
 
-                if device.supports(.channelFavorites) {
+                if !isSimplified && device.supports(.channelFavorites) {
                     favoritesSection(for: device)
                 }
 
-                if device.supports(.keyboardInput) {
+                if !isSimplified && device.supports(.keyboardInput) {
                     Button {
                         isKeyboardPresented = true
                     } label: {
@@ -89,6 +117,7 @@ struct RemoteView: View {
             }
             .padding(RelaySpacing.lg)
         }
+        .environment(\.relayLargeButtonMode, appState.settings.largeButtonMode)
         .sheet(isPresented: $isKeyboardPresented) {
             KeyboardInputSheet(deviceID: device.id)
         }
@@ -137,7 +166,7 @@ struct RemoteView: View {
                 }
                 .accessibilityLabel("Power")
             }
-            if device.supports(.inputSelect) {
+            if !isSimplified && device.supports(.inputSelect) {
                 Button {
                     isInputPromptPresented = true
                 } label: {
@@ -177,18 +206,24 @@ struct RemoteView: View {
     private func playbackRow(for device: Device) -> some View {
         HStack(spacing: RelaySpacing.lg) {
             RemoteButton(systemImage: "backward.fill") { await sendCommand(.rewind, on: device) }
+                .accessibilityLabel("Rewind")
             RemoteButton(systemImage: "playpause.fill", isPrimary: true) { await sendCommand(.play, on: device) }
+                .accessibilityLabel("Play or pause")
             RemoteButton(systemImage: "forward.fill") { await sendCommand(.fastForward, on: device) }
+                .accessibilityLabel("Fast forward")
         }
     }
 
     private func volumeRow(for device: Device) -> some View {
         HStack(spacing: RelaySpacing.lg) {
             RemoteButton(systemImage: "speaker.minus.fill") { await sendCommand(.volumeDown, on: device) }
+                .accessibilityLabel("Volume down")
             if device.supports(.mute) {
                 RemoteButton(systemImage: "speaker.slash.fill") { await sendCommand(.mute, on: device) }
+                    .accessibilityLabel("Mute")
             }
             RemoteButton(systemImage: "speaker.plus.fill") { await sendCommand(.volumeUp, on: device) }
+                .accessibilityLabel("Volume up")
         }
     }
 
@@ -202,7 +237,7 @@ struct RemoteView: View {
                 RemoteButton(systemImage: "house.fill") { await sendCommand(.home, on: device) }
                     .accessibilityLabel("Home")
             }
-            if device.supports(.menuButton) {
+            if !isSimplified && device.supports(.menuButton) {
                 RemoteButton(systemImage: "line.3.horizontal") { await sendCommand(.menu, on: device) }
                     .accessibilityLabel("Menu")
             }
@@ -306,7 +341,6 @@ struct RemoteView: View {
         do {
             try await appState.send(command, toDeviceID: device.id)
             lastErrorMessage = nil
-            appState.settings.recordSuccessfulSession(on: Date())
         } catch {
             HapticsHelper.shared.commandFailed()
             lastErrorMessage = "That command didn't go through. Check the device's connection."

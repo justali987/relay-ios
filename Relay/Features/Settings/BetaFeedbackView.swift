@@ -82,7 +82,10 @@ struct BetaFeedbackView: View {
             } header: {
                 Text("Included automatically")
             } footer: {
-                Text("Only what you see here is shared. No device names, IP addresses, or pairing tokens are included. You choose where the report goes.")
+                Text(
+                    "Only what you see here is shared. No device names, IP addresses, or pairing " +
+                    "tokens are included. You choose where the report goes."
+                )
             }
         }
         .navigationTitle("Beta Feedback")

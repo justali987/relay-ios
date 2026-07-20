@@ -53,8 +53,12 @@ workflows:
       - name: Set build number to the Codemagic build counter
         script: |
           # Gives every upload a unique, increasing CFBundleVersion (TestFlight rejects duplicates).
-          cd "$CM_BUILD_DIR"
-          agvtool new-version -all "$(($BUILD_NUMBER))" || true
+          # Requires VERSIONING_SYSTEM=apple-generic on the Relay target (set in project.yml) --
+          # without it agvtool has nothing to act on. No `|| true` here: if this fails, every build
+          # after the first will silently collide on CFBundleVersion and get rejected, so a failure
+          # here should stop the build, not hide itself.
+          set -e
+          agvtool new-version -all "$BUILD_NUMBER"
       - name: Set up code signing for the archive
         script: |
           xcode-project use-profiles
@@ -66,8 +70,8 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/ios/xcarchive/*.xcarchive/dSYMs/*.dSYM
       - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
     publishing:
       app_store_connect:

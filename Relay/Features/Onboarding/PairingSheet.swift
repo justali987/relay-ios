@@ -27,7 +27,12 @@ struct PairingSheet: View {
 
                 if needsCode {
                     VStack(spacing: RelaySpacing.sm) {
-                        Text("Enter the code shown on \(discovered.name)")
+                        // `discovered.name` is untrusted device-supplied text (e.g. Roku's
+                        // friendly-device-name, readable from any device on the LAN). Interpolating
+                        // it into a string literal binds to LocalizedStringKey, which SwiftUI
+                        // parses as Markdown — a crafted name like "[tap here](evil.url)" would
+                        // render as a styled, tappable link. `verbatim:` renders it as plain text.
+                        Text(verbatim: "Enter the code shown on \(discovered.name)")
                             .font(.relayHeadline)
                             .multilineTextAlignment(.center)
                         TextField("PIN", text: $code)
@@ -38,7 +43,7 @@ struct PairingSheet: View {
                             .frame(maxWidth: 160)
                     }
                 } else if isPairing {
-                    Text("Pairing with \(discovered.name)…")
+                    Text(verbatim: "Pairing with \(discovered.name)…")
                         .font(.relayHeadline)
                 }
 
@@ -89,6 +94,12 @@ struct PairingSheet: View {
             isPairing = false
         } catch AdapterError.unreachable {
             errorMessage = "Couldn't reach \(discovered.name). Make sure it's powered on and connected."
+            isPairing = false
+        } catch AdapterError.notImplemented {
+            // Defensive — the UI shouldn't offer this path for a brand where isImplemented is
+            // false (see ManualPairingView), but never surface "try again" for something that can
+            // never succeed.
+            errorMessage = "\(discovered.brand.displayName) support isn't available in this version of Relay yet."
             isPairing = false
         } catch {
             errorMessage = "Pairing failed. Please try again."

@@ -21,7 +21,11 @@ struct PrivacySettingsView: View {
             Section {
                 Toggle("Share Anonymized Usage Data", isOn: $settings.analyticsOptIn)
             } footer: {
-                Text("Off by default. If enabled, Relay records only anonymized feature-usage counts — never device names, IP addresses, pairing tokens, or remote commands.")
+                Text(
+                    "Reserved for a future update. Currently collects nothing regardless of this " +
+                    "setting — Relay has no analytics implementation yet. If that changes, it will " +
+                    "still never include device names, IP addresses, pairing tokens, or remote commands."
+                )
             }
 
             Section {
@@ -29,7 +33,10 @@ struct PrivacySettingsView: View {
                     isExportConfirmationPresented = true
                 }
             } footer: {
-                Text("Generates a report of device connection status for troubleshooting. Device names, IP addresses, and pairing tokens are redacted before anything is shared.")
+                Text(
+                    "Generates a report of device connection status for troubleshooting. Device names, " +
+                    "IP addresses, and pairing tokens are redacted before anything is shared."
+                )
             }
         }
         .navigationTitle("Privacy")

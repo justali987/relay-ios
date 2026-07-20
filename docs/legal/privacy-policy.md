@@ -30,15 +30,21 @@ Deleting the app removes this data from your device.
 
 Relay asks for permission to access your local network the first time you tap **Find devices**. It
 uses this access to discover compatible TVs (via SSDP and, where applicable, Bonjour/mDNS) and to
-send remote-control commands to the devices you pair. This traffic never leaves your home network.
+send remote-control commands to the devices you pair. This traffic never leaves your home network —
+but most TV control protocols (including Roku's, which Relay supports today) are unencrypted on the
+local network by design, the same way most smart-home and IoT devices work. Someone with access to
+your Wi-Fi network could technically observe this local traffic, including text typed through
+Relay's on-screen keyboard. This is a property of how these devices' own control protocols work, not
+something Relay adds; it's the same reason we recommend keeping guest/isolated Wi-Fi networks out of
+discovery in the first place.
 
 ## Optional, opt-in analytics
 
-Relay ships with anonymized usage analytics **turned off**. If you choose to turn on "Share
-Anonymized Usage Data" (Settings ▸ Privacy), Relay may record anonymized, aggregate feature-usage
-counts to help improve the app. Even when enabled, Relay never records device names, IP addresses,
-pairing tokens, the contents of your keyboard input, or which commands you send. You can turn this
-off again at any time.
+Relay ships with anonymized usage analytics **turned off**, and does not yet have an analytics
+implementation at all — turning "Share Anonymized Usage Data" on (Settings ▸ Privacy) currently
+collects nothing. This setting is reserved for a possible future update; if that ever changes, this
+policy will be updated first, and it will still never include device names, IP addresses, pairing
+tokens, the contents of your keyboard input, or which commands you send.
 
 ## Diagnostics you choose to share
 

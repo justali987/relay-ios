@@ -19,7 +19,11 @@ struct AssignRoomView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Add \(pairedDevice.name) to a room") {
+                // `pairedDevice.name` is untrusted device-supplied text; a plain string-literal
+                // Section title renders as Text/LocalizedStringKey (Markdown-parsed) — use
+                // `Text(verbatim:)` in the header closure instead. See PairingSheet.swift for the
+                // same fix with the full explanation.
+                Section {
                     ForEach(appState.rooms) { room in
                         Button {
                             selectedRoomID = room.id
@@ -43,6 +47,8 @@ struct AssignRoomView: View {
                     } label: {
                         Label("New room", systemImage: "plus.circle")
                     }
+                } header: {
+                    Text(verbatim: "Add \(pairedDevice.name) to a room")
                 }
 
                 if isCreatingNewRoom {

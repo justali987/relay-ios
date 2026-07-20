@@ -19,13 +19,19 @@ struct AccessibilitySettingsView: View {
             Section {
                 Toggle("Simplified / Guest Mode", isOn: $settings.simplifiedGuestMode)
             } footer: {
-                Text("Shows a reduced remote with just power, volume, navigation, and home/back — no scenes, keyboard, or settings access.")
+                Text(
+                    "On the Remote screen, shows only power, volume, navigation, and home/back — " +
+                    "hides the keyboard, menu, color keys, channel controls, favorites, and input selection."
+                )
             }
 
             Section {
-                Text("Relay follows your system Dynamic Type, Reduce Motion, and Reduce Transparency settings automatically. Adjust those in iOS Settings > Accessibility.")
-                    .font(.relayCaption)
-                    .foregroundStyle(Color.relayTextSecondary)
+                Text(
+                    "Relay follows your system Dynamic Type, Reduce Motion, and Reduce Transparency " +
+                    "settings automatically. Adjust those in iOS Settings > Accessibility."
+                )
+                .font(.relayCaption)
+                .foregroundStyle(Color.relayTextSecondary)
             }
         }
         .navigationTitle("Accessibility")

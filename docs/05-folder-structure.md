@@ -71,8 +71,9 @@ Relay/
 │  │  └─ Settings/
 │  │     ├─ SettingsView.swift
 │  │     ├─ AccessibilitySettingsView.swift
-│  │     ├─ PrivacySettingsView.swift
-│  │     └─ RelayPlusView.swift
+│  │     └─ PrivacySettingsView.swift
+│  │     (RelayPlusView removed pre-launch — see docs/08-launch-runbook.md;
+│  │      re-add once a real StoreKit product exists)
 │  │
 │  ├─ DesignSystem/
 │  │  ├─ Color+Tokens.swift

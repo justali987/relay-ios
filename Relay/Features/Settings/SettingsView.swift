@@ -15,13 +15,12 @@ struct SettingsView: View {
             }
 
             Section {
-                NavigationLink("Relay Plus") { RelayPlusView() }
-            }
-
-            Section {
                 Toggle("Demo Mode", isOn: $settings.demoModeEnabled)
             } footer: {
-                Text("Adds simulated devices so you can explore Relay without a real TV. Turn this on, then tap Find devices on the Home tab.")
+                Text(
+                    "Adds simulated devices so you can explore Relay without a real TV. Turn this " +
+                    "on, then tap Find devices on the Home tab."
+                )
             }
 
             Section {

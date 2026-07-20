@@ -7,9 +7,13 @@ struct CompatibilityPageView: View {
     var body: some View {
         List {
             Section {
-                Text("Relay controls devices over your home Wi-Fi network. iPhones have no infrared emitter, so Relay can't act as a traditional IR remote — every device below is controlled over the network, and support depends on that device's own network features.")
-                    .font(.relaySubheadline)
-                    .foregroundStyle(Color.relayTextSecondary)
+                Text(
+                    "Relay controls devices over your home Wi-Fi network. iPhones have no infrared emitter, " +
+                    "so Relay can't act as a traditional IR remote — every device below is controlled over " +
+                    "the network, and support depends on that device's own network features."
+                )
+                .font(.relaySubheadline)
+                .foregroundStyle(Color.relayTextSecondary)
             }
 
             ForEach(DeviceBrand.allCases.filter { $0 != .mock }) { brand in
@@ -18,6 +22,16 @@ struct CompatibilityPageView: View {
                         Label("Not controllable by Relay", systemImage: "xmark.circle")
                             .foregroundStyle(Color.relayStatusUnavailable)
                         Text(unsupportedExplanation(for: brand))
+                            .font(.relayCaption)
+                            .foregroundStyle(Color.relayTextSecondary)
+                    } else if !brand.isImplemented {
+                        // Architecturally controllable, but the adapter isn't built yet — never
+                        // shown as "Supported" and never offered a pairing attempt that can only
+                        // fail. See docs/03-feasibility-warnings.md.
+                        Label("Coming soon", systemImage: "clock")
+                            .foregroundStyle(Color.relayStatusSleeping)
+                        Text(verbatim: "\(brand.displayName) support is planned but not yet built. " +
+                            "Pairing isn't available for this brand in this version.")
                             .font(.relayCaption)
                             .foregroundStyle(Color.relayTextSecondary)
                     } else {
@@ -42,9 +56,13 @@ struct CompatibilityPageView: View {
             }
 
             Section("Power-on / wake") {
-                Text("Turning a device on over Wi-Fi depends on that device's own network standby setting, which is often off by default and varies by model. Relay will attempt it where supported, but can't guarantee it works on every TV.")
-                    .font(.relayCaption)
-                    .foregroundStyle(Color.relayTextSecondary)
+                Text(
+                    "Turning a device on over Wi-Fi depends on that device's own network standby setting, " +
+                    "which is often off by default and varies by model. Relay will attempt it where " +
+                    "supported, but can't guarantee it works on every TV."
+                )
+                .font(.relayCaption)
+                .foregroundStyle(Color.relayTextSecondary)
             }
         }
         .navigationTitle("Compatibility")
@@ -53,7 +71,8 @@ struct CompatibilityPageView: View {
     private func unsupportedExplanation(for brand: DeviceBrand) -> String {
         switch brand {
         case .appleTV:
-            "Apple doesn't provide a public API for third-party apps to control an Apple TV the way other platforms allow, so Relay can't offer direct control."
+            "Apple doesn't provide a public API for third-party apps to control an Apple TV the way " +
+            "other platforms allow, so Relay can't offer direct control."
         default:
             "Not currently supported."
         }

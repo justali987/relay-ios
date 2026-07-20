@@ -8,14 +8,40 @@ final class RokuAdapter: DeviceAdapter, @unchecked Sendable {
     let brand: DeviceBrand = .roku
 
     private let ssdp = SSDPDiscoveryService()
-    private let networkClient = NetworkClient(maxAttempts: 2, timeoutSeconds: 3)
+    /// Used for the idempotent `GET /query/device-info` — safe to retry on a transient failure.
+    private let queryClient = NetworkClient(maxAttempts: 2, timeoutSeconds: 3)
+    /// Used for `POST /keypress`/`/launch` — a lost response after Roku already processed the
+    /// keypress means a retry would deliver the same key twice (double volume step, duplicated
+    /// digit). Commands are not idempotent, so this client never retries.
+    private let commandClient = NetworkClient(maxAttempts: 1, timeoutSeconds: 3)
 
+    /// Builds the full ECP URL in a single percent-encoding pass. `path` must already have any
+    /// dynamic segment (a keypress key, a launch id) pre-encoded via `Self.ecpSegmentAllowed` —
+    /// never pass a raw value through `URL.appendingPathComponent`, which would percent-encode an
+    /// already-encoded segment a second time (turning `%20` into `%2520`, corrupting anything but
+    /// plain ASCII keypress names — see the keyboard-input bug this replaced).
+    ///
     /// `Device.host`/`DiscoveredDevice.host` are always a bare hostname or IP — `discover()` below
     /// extracts just the host portion out of SSDP's full LOCATION URL before it ever reaches a
-    /// `DiscoveredDevice`.
-    private func ecpBaseURL(host: String) -> URL {
-        URL(string: "http://\(host):8060")!
+    /// `DiscoveredDevice`. A manually-entered host is validated as a plausible IP literal before it
+    /// ever reaches an adapter (see `ManualPairingView`), but this throws rather than
+    /// force-unwrapping as defense in depth against a malformed host reaching here anyway.
+    private func ecpURL(host: String, path: String) throws -> URL {
+        guard let url = URL(string: "http://\(host):8060/\(path)") else {
+            throw AdapterError.malformedResponse
+        }
+        return url
     }
+
+    /// Allowed characters for a single ECP path segment's literal payload (one keyboard character,
+    /// an app-launch id). Deliberately stricter than `.urlPathAllowed`, which still permits `/` —
+    /// valid as a path *separator*, but not safe inside a value that must stay one segment (a
+    /// literal `/` in typed text would otherwise inject an extra path component).
+    private static let ecpSegmentAllowed: CharacterSet = {
+        var set = CharacterSet.urlPathAllowed
+        set.remove(charactersIn: "/")
+        return set
+    }()
 
     // MARK: - Discovery
 
@@ -73,7 +99,9 @@ final class RokuAdapter: DeviceAdapter, @unchecked Sendable {
         // included — ECP has no keypress equivalent for cable-box-style color keys (see
         // docs/02-capability-matrix.md). `.channelFavorites`/`.channelControl` aren't included
         // either — Roku is a streaming player/TV-OS, not a tuner device.
-        var capabilities: Set<DeviceCapability> = [.dpad, .homeButton, .backButton, .playback, .keyboardInput, .appLaunch, .healthCheck, .menuButton]
+        var capabilities: Set<DeviceCapability> = [
+            .dpad, .homeButton, .backButton, .playback, .keyboardInput, .appLaunch, .healthCheck, .menuButton,
+        ]
         // ECP volume/power keys only meaningfully apply to Roku TVs — a Roku streaming player has
         // no control over the display/soundbar it's plugged into.
         if info.isTV {
@@ -128,23 +156,42 @@ final class RokuAdapter: DeviceAdapter, @unchecked Sendable {
     }
 
     private func keypress(_ key: String, host: String) async throws {
-        guard let encodedKey = key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard let encodedKey = key.addingPercentEncoding(withAllowedCharacters: Self.ecpSegmentAllowed) else {
             throw AdapterError.malformedResponse
         }
-        let url = ecpBaseURL(host: host).appendingPathComponent("keypress/\(encodedKey)")
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: try ecpURL(host: host, path: "keypress/\(encodedKey)"))
         request.httpMethod = "POST"
-        _ = try await networkClient.send(request)
+        do {
+            _ = try await commandClient.send(request)
+        } catch {
+            throw Self.mapNetworkError(error)
+        }
     }
 
     private func launch(appID: String, host: String) async throws {
-        guard let encodedID = appID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard let encodedID = appID.addingPercentEncoding(withAllowedCharacters: Self.ecpSegmentAllowed) else {
             throw AdapterError.malformedResponse
         }
-        let url = ecpBaseURL(host: host).appendingPathComponent("launch/\(encodedID)")
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: try ecpURL(host: host, path: "launch/\(encodedID)"))
         request.httpMethod = "POST"
-        _ = try await networkClient.send(request)
+        do {
+            _ = try await commandClient.send(request)
+        } catch {
+            throw Self.mapNetworkError(error)
+        }
+    }
+
+    /// Translates the transport-level `NetworkClient.ClientError` into the `AdapterError` taxonomy
+    /// `AppState` already has specific user-facing copy for — without this, every Roku network
+    /// failure surfaced as the generic "Command failed," never the more useful "timed out" /
+    /// "unreachable" messages.
+    private static func mapNetworkError(_ error: Error) -> Error {
+        guard let clientError = error as? NetworkClient.ClientError else { return error }
+        switch clientError {
+        case .timedOut: return AdapterError.timeout
+        case .transport: return AdapterError.unreachable
+        case .httpStatus: return AdapterError.malformedResponse
+        }
     }
 
     // MARK: - Health
@@ -195,8 +242,13 @@ final class RokuAdapter: DeviceAdapter, @unchecked Sendable {
     }
 
     private func fetchDeviceInfo(host: String) async throws -> DeviceInfo {
-        let url = ecpBaseURL(host: host).appendingPathComponent("query/device-info")
-        let data = try await networkClient.send(URLRequest(url: url))
+        let url = try ecpURL(host: host, path: "query/device-info")
+        let data: Data
+        do {
+            data = try await queryClient.send(URLRequest(url: url))
+        } catch {
+            throw Self.mapNetworkError(error)
+        }
         guard let xml = String(data: data, encoding: .utf8) else {
             throw AdapterError.malformedResponse
         }

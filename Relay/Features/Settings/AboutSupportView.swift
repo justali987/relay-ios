@@ -26,9 +26,12 @@ struct AboutSupportView: View {
             }
 
             Section {
-                Text("Relay finds and controls compatible devices on your home Wi-Fi. Nothing leaves your home unless you explicitly choose to export or share diagnostics.")
-                    .font(.relayCaption)
-                    .foregroundStyle(Color.relayTextSecondary)
+                Text(
+                    "Relay finds and controls compatible devices on your home Wi-Fi. Nothing leaves " +
+                    "your home unless you explicitly choose to export or share diagnostics."
+                )
+                .font(.relayCaption)
+                .foregroundStyle(Color.relayTextSecondary)
             }
         }
         .navigationTitle("About & Support")

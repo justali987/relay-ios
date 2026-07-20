@@ -12,6 +12,10 @@ final class AppState {
     private(set) var quickActions: [QuickAction] = []
     var lastUsedRoomID: UUID?
     var hasCompletedOnboarding: Bool
+    /// In-memory only, resets each launch — a lightweight guard so `markRemoteScreenVisited`
+    /// requests a review at most once per session. Apple's own StoreKit API separately throttles
+    /// how often the system actually displays the prompt (about 3x/year), independent of this.
+    private var hasRequestedReviewThisLaunch = false
 
     let deviceStore: DeviceStore
     let tokenStore: KeychainTokenStore
@@ -38,6 +42,11 @@ final class AppState {
         devices = await deviceStore.allDevices()
         quickActions = await deviceStore.allQuickActions()
         lastUsedRoomID = settings.lastUsedRoomID
+        // HapticsHelper is a plain singleton with no observation of its own — seed it from the
+        // persisted preference once at startup. Previously this only happened via an incidental
+        // `.onChange` in AccessibilitySettingsView, so a user who turned haptics off had them
+        // silently return on every relaunch until they revisited that exact screen.
+        HapticsHelper.shared.isEnabled = settings.hapticsEnabled
     }
 
     // MARK: - Rooms
@@ -192,15 +201,34 @@ final class AppState {
     /// Refreshes one device's live status from its owning adapter and persists the result.
     @discardableResult
     func refreshStatus(for deviceID: UUID) async -> ConnectionStatus? {
-        guard let index = devices.firstIndex(where: { $0.id == deviceID }) else { return nil }
-        let device = devices[index]
+        guard let device = devices.first(where: { $0.id == deviceID }) else { return nil }
         guard let adapter = await adapterRegistry.adapter(for: device) else { return nil }
 
+        // `checkHealth` is a real network round-trip and a suspension point — other MainActor
+        // mutations (e.g. removeDevice) can run while it's in flight and reorder/shrink `devices`.
+        // Re-locate the index by id AFTER the await rather than reusing one captured before it, so
+        // this never writes into the wrong slot or indexes past the end of a shrunk array.
         let status = await adapter.checkHealth(device)
+        guard let index = devices.firstIndex(where: { $0.id == deviceID }) else { return status }
         devices[index].status = status
         devices[index].lastResponseAt = status == .connected ? Date() : device.lastResponseAt
         await deviceStore.upsert(device: devices[index])
         return status
+    }
+
+    /// Records one qualifying visit to the Remote screen and reports whether this is a good moment
+    /// to request an App Store review. Deliberately per-*visit* (call once when `RemoteView`
+    /// appears), not per-command — recording on every keypress would satisfy "5 sessions" within
+    /// seconds of first pairing a device, which isn't what "5 successful sessions across 3 distinct
+    /// days" (docs/06-ux-screen-spec.md review-prompt rule) means. At most one `true` result per
+    /// app launch; the caller is expected to call the real `requestReview()` action when this
+    /// returns `true`, never during setup or an error state.
+    @discardableResult
+    func markRemoteScreenVisited() -> Bool {
+        settings.recordSuccessfulSession(on: Date())
+        guard settings.qualifiesForReviewPrompt, !hasRequestedReviewThisLaunch else { return false }
+        hasRequestedReviewThisLaunch = true
+        return true
     }
 
     /// Sends one command to a device, capability-gated at the call site (the UI should never offer
@@ -214,6 +242,20 @@ final class AppState {
             throw AdapterError.notPaired
         }
         try await adapter.send(command, to: device)
+    }
+
+    /// Attempts to wake a sleeping device via its adapter. `RokuAdapter.wake` (the one real
+    /// implementation so far) is best-effort and may throw `.unsupportedCommand` even when
+    /// `.powerOn` is otherwise supported — see docs/03-feasibility-warnings.md on how unreliable
+    /// network wake is across brands/models.
+    func wake(deviceID: UUID) async throws {
+        guard let device = devices.first(where: { $0.id == deviceID }) else {
+            throw AdapterError.notPaired
+        }
+        guard let adapter = await adapterRegistry.adapter(for: device) else {
+            throw AdapterError.notPaired
+        }
+        try await adapter.wake(device)
     }
 
     /// Tunes to a saved channel favorite by sending its digits sequentially through the existing
@@ -267,7 +309,9 @@ final class AppState {
                 results.append(QuickActionStepResult(deviceID: step.deviceID, deviceName: deviceName, succeeded: true))
             } catch {
                 let reason = (error as? AdapterError).map(Self.describe) ?? "Command failed."
-                results.append(QuickActionStepResult(deviceID: step.deviceID, deviceName: deviceName, succeeded: false, failureReason: reason))
+                results.append(QuickActionStepResult(
+                    deviceID: step.deviceID, deviceName: deviceName, succeeded: false, failureReason: reason
+                ))
             }
         }
         return results

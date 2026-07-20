@@ -88,4 +88,17 @@ enum DeviceBrand: String, Codable, Sendable, CaseIterable, Identifiable {
     var isExperimental: Bool {
         self == .fireTV
     }
+
+    /// Whether this brand has a real, working `DeviceAdapter` in the current build — distinct from
+    /// `isControlSupported`, which is about platform *feasibility* (Apple TV is never controllable
+    /// no matter the engineering effort). LG/Samsung/Google TV/Fire TV are architecturally
+    /// controllable but their adapters are still stubs that throw `.notImplemented` — see
+    /// docs/07-implementation-plan.md milestone 8. UI must not claim "Supported" or offer a
+    /// doomed pairing attempt for a brand where this is `false`.
+    var isImplemented: Bool {
+        switch self {
+        case .roku, .mock: true
+        case .lgWebOS, .samsungTizen, .googleTV, .fireTV, .appleTV: false
+        }
+    }
 }

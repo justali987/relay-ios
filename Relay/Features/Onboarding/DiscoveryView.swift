@@ -8,6 +8,7 @@ struct DiscoveryView: View {
 
     private enum Phase: Equatable {
         case scanning
+        case found
         case timedOut
     }
 
@@ -52,18 +53,32 @@ struct DiscoveryView: View {
         }
     }
 
+    /// Was previously a two-way if/else that treated "found results" and "timed out empty" as the
+    /// same branch — the "N device(s) found" text lived in the branch that only runs when the list
+    /// is EMPTY, so it always read "0 device(s) found," and there was no phase to move to once
+    /// scanning actually finished, so the spinner ran forever even after devices appeared.
+    @ViewBuilder
     private var header: some View {
-        HStack(spacing: RelaySpacing.sm) {
-            if phase == .scanning {
+        switch phase {
+        case .scanning:
+            HStack(spacing: RelaySpacing.sm) {
                 ProgressView()
                 Text("Scanning your network…")
                     .font(.relayBody)
                     .foregroundStyle(Color.relayTextSecondary)
-            } else {
-                Text("\(discoveredDevices.count) device(s) found")
+            }
+        case .found:
+            HStack {
+                Text("\(discoveredDevices.count) device\(discoveredDevices.count == 1 ? "" : "s") found")
                     .font(.relayBody)
                     .foregroundStyle(Color.relayTextSecondary)
+                Spacer()
+                Button("Rescan", action: restartScan)
+                    .font(.relayCaption)
+                    .foregroundStyle(Color.relayAccent)
             }
+        case .timedOut:
+            EmptyView()
         }
     }
 
@@ -85,9 +100,7 @@ struct DiscoveryView: View {
         }
 
         timeoutTask.cancel()
-        if discoveredDevices.isEmpty {
-            phase = .timedOut
-        }
+        phase = discoveredDevices.isEmpty ? .timedOut : .found
     }
 
     private func restartScan() {

@@ -98,14 +98,17 @@ Fire TV is experimental).
 1. **[Done] Local Network permission** — `NSLocalNetworkUsageDescription` and `NSBonjourServices`
    are declared in `project.yml` with a plain-language string (per Apple TN3179). Keep the Bonjour
    list matched to the adapters you actually ship.
-2. **[Done] Reviewer demo path** — **Demo Mode** (Settings ▸ Demo Mode) surfaces simulated devices
-   so a reviewer with no TV can complete discovery → pairing → full remote. Put this in the review
-   notes verbatim:
+2. **[Done] Reviewer demo path** — **Demo Mode** surfaces simulated devices so a reviewer with no
+   TV can complete discovery → pairing → full remote. It's reachable two ways: the **Welcome
+   screen's "Don't have a device yet? Explore with a demo"** link (works on a completely fresh
+   install, before onboarding), or **Settings ▸ Demo Mode** once you're past onboarding. Put this in
+   the review notes verbatim:
 
    > Relay controls real TVs over the local network, which App Review's environment may not have.
-   > To exercise the full flow without hardware: open **Settings ▸ Demo Mode** and turn it on, then
-   > go to the **Home** tab, tap **Find devices**, add a simulated device, and use the remote. All
-   > controls (D-pad, volume, playback, keyboard, scenes) work against the simulated device.
+   > To exercise the full flow without hardware: on the first screen, tap **"Don't have a device
+   > yet? Explore with a demo,"** then add one of the simulated devices shown and assign it to a
+   > room. All controls (D-pad, volume, playback, keyboard, scenes) work against the simulated
+   > device. (Demo Mode can also be toggled later from Settings.)
 
 3. **Demo video** — record the same walkthrough on a real device as a fallback.
 4. **App Privacy details** ("Data Not Collected") — see Phase 5.

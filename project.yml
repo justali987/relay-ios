@@ -28,12 +28,11 @@ targets:
         # Bonjour browse). Plain-language, per Apple TN3179 and App Review guidance — see
         # docs/08-launch-runbook.md.
         NSLocalNetworkUsageDescription: "Relay uses your local Wi-Fi to find and control compatible TVs in your home. Your commands stay on your network."
-        # Declare ONLY the Bonjour/mDNS service types the shipping build actually browses. Roku uses
-        # SSDP (no Bonjour entry needed); the Android TV adapter browses _androidtvremote2._tcp.
-        # Keep this list in sync with which adapters actually ship enabled — over-declaring is an
-        # App Review flag. Until the Android TV adapter ships, this can be trimmed further.
-        NSBonjourServices:
-          - _androidtvremote2._tcp
+        # No NSBonjourServices entry: Roku (the only real adapter) uses SSDP, which needs no Bonjour
+        # declaration. AndroidTVAdapter.discover() is still a stub that never actually browses
+        # `_androidtvremote2._tcp` — declaring a service type nothing browses is an App Review
+        # over-declaration flag (docs/07-implementation-plan.md milestone 8 covers real adapters).
+        # Add it back here the same day AndroidTVAdapter starts really browsing that service.
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
@@ -49,6 +48,10 @@ targets:
         # the cloud-Mac archive can sign — the GitHub Actions simulator builds pass
         # CODE_SIGNING_ALLOWED=NO on the xcodebuild command line instead (see ios-ci.yml).
         CODE_SIGN_STYLE: Automatic
+        # Required for `agvtool` (codemagic.yaml's build-number bump) to have anything to act on —
+        # without this, agvtool silently fails to bump CFBundleVersion and every TestFlight upload
+        # after the first is rejected as a duplicate build number.
+        VERSIONING_SYSTEM: "apple-generic"
 
   RelayTests:
     type: bundle.unit-test

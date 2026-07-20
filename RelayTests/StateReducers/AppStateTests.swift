@@ -89,4 +89,58 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(results.count, 1)
         XCTAssertFalse(results[0].succeeded)
     }
+
+    /// Guards the privacy contract in `AppState.discoverAllDevices`: real users must never see
+    /// simulated devices in their discovery list. `makeAppState()`'s registry is mock-only, so with
+    /// Demo Mode off the fan-out has nothing left to iterate and the stream should complete empty.
+    func testDiscoverExcludesMockWhenDemoModeOff() async {
+        let appState = makeAppState()
+        appState.settings.demoModeEnabled = false
+
+        var found: [DiscoveredDevice] = []
+        for await device in appState.discoverAllDevices() {
+            found.append(device)
+        }
+
+        XCTAssertTrue(found.isEmpty)
+    }
+
+    func testDiscoverIncludesMockWhenDemoModeOn() async {
+        let appState = makeAppState()
+        appState.settings.demoModeEnabled = true
+
+        var found: [DiscoveredDevice] = []
+        for await device in appState.discoverAllDevices() {
+            found.append(device)
+        }
+
+        XCTAssertEqual(found.count, MockScenarios.allDiscoverable.count)
+    }
+
+    func testMarkRemoteScreenVisitedDoesNotQualifyBeforeThreshold() async {
+        let appState = makeAppState()
+        for _ in 0..<4 {
+            XCTAssertFalse(appState.markRemoteScreenVisited(), "Shouldn't qualify before 5 visits across 3 days")
+        }
+    }
+
+    /// `AppState.markRemoteScreenVisited` reports whether a review prompt is due, gated on
+    /// `AppSettings.qualifiesForReviewPrompt` (>= 5 sessions across >= 3 distinct calendar days —
+    /// see docs/06-ux-screen-spec.md). Seeds sessions directly via `AppSettings` across real
+    /// distinct days so the distinct-day gate is genuinely exercised, not just the count. Must
+    /// request a review at most once per launch even once the threshold is met.
+    func testMarkRemoteScreenVisitedRequestsReviewOnceThresholdIsMet() async {
+        let appState = makeAppState()
+        let calendar = Calendar.current
+        let today = Date()
+
+        for dayOffset in [0, 1, 1, 2, 2] {
+            let date = calendar.date(byAdding: .day, value: -dayOffset, to: today)!
+            appState.settings.recordSuccessfulSession(on: date)
+        }
+        XCTAssertTrue(appState.settings.qualifiesForReviewPrompt)
+
+        XCTAssertTrue(appState.markRemoteScreenVisited(), "Should request review once the threshold is met")
+        XCTAssertFalse(appState.markRemoteScreenVisited(), "Should not request review twice in one launch")
+    }
 }

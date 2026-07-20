@@ -1,8 +1,10 @@
 import SwiftUI
 
 /// Manual pairing by brand + host, for when discovery fails or the user prefers to enter details
-/// directly. Apple TV is shown but not selectable for pairing — it links to the Compatibility page
-/// instead, per docs/03-feasibility-warnings.md.
+/// directly. Apple TV is shown but not selectable for pairing (never controllable — Apple platform
+/// restriction). Brands with a real adapter but no `DeviceAdapter` implementation yet
+/// (`!isImplemented`) are shown as "Coming soon" rather than offered a pairing attempt that can
+/// only fail with a generic error — see docs/03-feasibility-warnings.md.
 struct ManualPairingView: View {
     @Environment(AppState.self) private var appState
 
@@ -26,7 +28,11 @@ struct ManualPairingView: View {
                         HStack {
                             Text(brand.displayName)
                                 .foregroundStyle(Color.relayTextPrimary)
-                            if brand.isExperimental {
+                            if brand.isControlSupported && !brand.isImplemented {
+                                Text("Coming soon")
+                                    .font(.relayCaption)
+                                    .foregroundStyle(Color.relayStatusSleeping)
+                            } else if brand.isExperimental {
                                 Text("Experimental")
                                     .font(.relayCaption)
                                     .foregroundStyle(Color.relayStatusSleeping)
@@ -46,6 +52,18 @@ struct ManualPairingView: View {
                     Text("Apple TV isn't controllable by Relay due to Apple's platform restrictions.")
                         .font(.relaySubheadline)
                         .foregroundStyle(Color.relayTextSecondary)
+                    NavigationLink("See what Relay can control") {
+                        CompatibilityPageView()
+                    }
+                }
+            } else if let selectedBrand, !selectedBrand.isImplemented {
+                Section {
+                    Text(verbatim:
+                        "\(selectedBrand.displayName) support is planned but not yet built in this " +
+                        "version of Relay — pairing isn't available for it yet."
+                    )
+                    .font(.relaySubheadline)
+                    .foregroundStyle(Color.relayTextSecondary)
                     NavigationLink("See what Relay can control") {
                         CompatibilityPageView()
                     }
