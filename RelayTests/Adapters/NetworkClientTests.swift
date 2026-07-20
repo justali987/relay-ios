@@ -12,7 +12,7 @@ final class NetworkClientTests: XCTestCase {
     }
 
     func testSuccessfulResponseReturnsData() async throws {
-        let expected = "hello".data(using: .utf8)!
+        let expected = Data("hello".utf8)
         NetworkSimulator.scriptedResponses = [.success(statusCode: 200, body: expected)]
 
         let data = try await makeClient().send(URLRequest(url: URL(string: "http://10.0.0.1:8060/query/device-info")!))
@@ -20,7 +20,7 @@ final class NetworkClientTests: XCTestCase {
     }
 
     func test5xxRetriesThenSucceeds() async throws {
-        let expected = "recovered".data(using: .utf8)!
+        let expected = Data("recovered".utf8)
         NetworkSimulator.scriptedResponses = [
             .success(statusCode: 503, body: Data()),
             .success(statusCode: 503, body: Data()),

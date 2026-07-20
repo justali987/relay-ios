@@ -37,7 +37,7 @@ final class SSDPDiscoveryService: @unchecked Sendable {
 
             connection.stateUpdateHandler = { state in
                 guard case .ready = state else { return }
-                connection.send(content: message.data(using: .utf8), completion: .contentProcessed { _ in
+                connection.send(content: Data(message.utf8), completion: .contentProcessed { _ in
                     self.receiveLoop(on: connection, searchTarget: searchTarget, continuation: continuation)
                 })
             }

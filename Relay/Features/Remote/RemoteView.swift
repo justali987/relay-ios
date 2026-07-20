@@ -352,8 +352,8 @@ struct RemoteView: View {
 /// A single remote control button — wraps `RelayRemoteControlButtonStyle` so every control call
 /// site doesn't repeat the async-action/haptic boilerplate.
 private struct RemoteButton: View {
-    var systemImage: String? = nil
-    var text: String? = nil
+    var systemImage: String?
+    var text: String?
     var isPrimary: Bool = false
     let action: () async -> Void
 
