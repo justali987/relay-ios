@@ -8,12 +8,32 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    # SwiftLint as a reporting gate. Fails only on error-level violations (see .swiftlint.yml);
+    # warnings show in the log without blocking. Fast, so it runs on every push.
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: Lint
+        run: swiftlint lint --reporter github-actions-logging
+
   build-and-test:
-    # Only free-tier requirement: a macOS runner. No Apple Developer account, certificates, or
-    # provisioning profiles are needed — everything below targets the iOS Simulator, which never
-    # requires code signing. See project.yml's CODE_SIGNING_ALLOWED/REQUIRED settings.
+    # Build + unit tests across a spread of iPhone screen sizes (smallest current SE, standard 16,
+    # largest Pro Max) so layout / Dynamic Type regressions surface on more than one device. iOS
+    # version is left unpinned (newest paired runtime per device) — pinning a minor version is
+    # fragile across runner-image updates. No code signing: simulator builds never need it.
     runs-on: macos-15
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        device:
+          - "iPhone SE (3rd generation)"
+          - "iPhone 16"
+          - "iPhone 16 Pro Max"
 
     steps:
       - name: Check out repository
@@ -35,8 +55,10 @@ jobs:
       - name: Generate Xcode project from project.yml
         run: xcodegen generate
 
-      - name: Boot an iPhone simulator and capture its UDID
+      - name: Boot the matrix simulator and capture its UDID
         run: ./scripts/boot-simulator.sh
+        env:
+          SIM_DEVICE: ${{ matrix.device }}
 
       - name: Build (Relay app target)
         run: |
@@ -58,9 +80,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   ui-tests:
-    # Separate, manually-triggered job — UI automation is slower and more failure-prone than the
-    # unit-test loop above, so it doesn't run on every push. Trigger it from the Actions tab
-    # ("Run workflow") when you specifically want RelayUITests to run.
+    # Slower simulator UI automation — manually triggered so it doesn't run on every push. Runs on
+    # the standard device only. Trigger from the Actions tab ("Run workflow").
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 30
@@ -82,6 +103,8 @@ jobs:
 
       - name: Boot an iPhone simulator and capture its UDID
         run: ./scripts/boot-simulator.sh
+        env:
+          SIM_DEVICE: "iPhone 16"
 
       - name: Run UI tests (RelayUITests)
         run: |

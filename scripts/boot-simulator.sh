@@ -1,33 +1,50 @@
 #!/usr/bin/env bash
 # Resolves a concrete iOS Simulator UDID, boots it, and exports SIM_UDID for later workflow steps.
 #
-# Why this exists: passing `-destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'` to
-# xcodebuild relies on xcodebuild's own name/OS resolution, which is flaky across GitHub's macOS
-# runner VMs — one job's VM resolves it fine while another job's VM (in the same workflow run)
-# reports "Unable to find a device matching the provided destination specifier". Resolving the UDID
-# ourselves via `simctl` and passing `id=<UDID>` is deterministic: simctl reliably enumerates the
-# devices the image ships with, and an explicit id sidesteps xcodebuild's fuzzy matching entirely.
+# Why this exists: passing `-destination 'platform=iOS Simulator,name=...,OS=...'` to xcodebuild
+# relies on xcodebuild's own name/OS resolution, which is flaky across GitHub's macOS runner VMs.
+# Resolving the UDID ourselves via `simctl` and passing `id=<UDID>` is deterministic.
+#
+# Inputs (env, both optional):
+#   SIM_DEVICE  device model name, e.g. "iPhone 16" (default), "iPhone SE (3rd generation)"
+#   SIM_OS      iOS runtime version to pin, e.g. "18.5" or "26.0". If unset, the newest runtime
+#               that has the requested device is used.
 set -euo pipefail
 
-# Prefer a plain "iPhone 16" (the trailing space + "(" avoids matching "iPhone 16 Pro" / "Plus" /
-# "Pro Max"); fall back to any available iPhone if that model name ever disappears from the image.
-UDID="$(xcrun simctl list devices available | grep -m1 -E 'iPhone 16 \(' | grep -oiE '[0-9A-F-]{36}' || true)"
+SIM_DEVICE="${SIM_DEVICE:-iPhone 16}"
+SIM_OS="${SIM_OS:-}"
 
-if [ -z "${UDID}" ]; then
-  echo "iPhone 16 not found; falling back to the first available iPhone simulator." >&2
-  UDID="$(xcrun simctl list devices available | grep -m1 -E 'iPhone .*\(' | grep -oiE '[0-9A-F-]{36}' || true)"
-fi
+# `simctl list devices available` prints runtime headers ("-- iOS 18.5 --") followed by their
+# devices ("    iPhone 16 (UDID) (Shutdown)"). Walk it, tracking the current runtime, and collect
+# UDIDs for the requested device, remembering which runtime each came from.
+udid=""
+matched_os=""
+while IFS= read -r line; do
+  if [[ "$line" =~ ^--\ iOS\ ([0-9.]+)\ --$ ]]; then
+    cur_os="${BASH_REMATCH[1]}"
+    continue
+  fi
+  # exact device name followed by " (UDID) (state)"; the leading spaces + "(" guard against
+  # matching "iPhone 16 Pro" when we asked for "iPhone 16".
+  if [[ "$line" == *"    ${SIM_DEVICE} ("* ]]; then
+    id="$(printf '%s\n' "$line" | grep -oiE '[0-9A-F-]{36}' | head -1 || true)"
+    [ -z "$id" ] && continue
+    if [ -n "$SIM_OS" ]; then
+      if [ "${cur_os:-}" = "$SIM_OS" ]; then udid="$id"; matched_os="$cur_os"; break; fi
+    else
+      # no pin: keep the last (newest listed) match
+      udid="$id"; matched_os="${cur_os:-}"
+    fi
+  fi
+done < <(xcrun simctl list devices available)
 
-if [ -z "${UDID}" ]; then
-  echo "No available iPhone simulator found on this runner." >&2
+if [ -z "$udid" ]; then
+  echo "No available simulator for device='${SIM_DEVICE}' os='${SIM_OS:-any}'." >&2
+  echo "Available devices:" >&2
   xcrun simctl list devices available >&2
   exit 1
 fi
 
-echo "Using simulator UDID: ${UDID}"
-
-# Boot it now (ignore 'already booted'); a pre-booted device makes the subsequent xcodebuild test
-# run start faster and avoids a first-launch boot race under UI automation.
-xcrun simctl boot "${UDID}" 2>/dev/null || true
-
-echo "SIM_UDID=${UDID}" >> "${GITHUB_ENV}"
+echo "Using ${SIM_DEVICE} on iOS ${matched_os:-?} — UDID ${udid}"
+xcrun simctl boot "$udid" 2>/dev/null || true
+echo "SIM_UDID=${udid}" >> "${GITHUB_ENV}"
