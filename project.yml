@@ -1,6 +1,13 @@
 name: Relay
 options:
   bundleIdPrefix: com.relay.app
+  # Target hardware floor is iPhone 12 and later. iPhone 12 has no chip/capability Relay needs and
+  # isn't excluded by anything here — the only thing that can exclude it is this OS floor, and
+  # iPhone 12 fully supports iOS 17+ (Apple still ships it current updates). Going lower than 17
+  # would only additionally reach iPhone 12 owners who haven't updated their OS in years, at the
+  # cost of ripping out @Observable/@Bindable (iOS 17+), which AppState/AppSettings and every
+  # Settings screen are built on — not worth it for that sliver of users. Revisit only if real
+  # install data shows meaningful demand stuck below iOS 17.
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true

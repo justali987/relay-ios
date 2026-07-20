@@ -130,8 +130,12 @@ Fire TV is experimental).
 - **App Privacy answers**: since Relay collects nothing and ships no third-party SDKs, answer
   **"Data Not Collected."** (If you ever enable the opt-in analytics with a real backend, revisit —
   Apple requires disclosing data collected by third-party SDKs too.)
-- **Pricing** — free. Relay Plus is a stubbed placeholder; don't enable any IAP until a real
+- **Pricing** — free. There's no IAP in this build (the earlier Relay Plus placeholder was removed
+  pre-launch rather than ship a non-functional purchase screen); don't add one until a real
   StoreKit product exists.
+- **Minimum requirements field**: **iOS 17.0, iPhone 12 or later** (see docs/01-PRD.md "Device
+  support" for why). App Store Connect infers the device list from `TARGETED_DEVICE_FAMILY` +
+  deployment target automatically — nothing to enter by hand beyond confirming it matches.
 
 ---
 

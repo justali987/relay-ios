@@ -27,6 +27,17 @@ reliability:
    needs an obvious, simplified interface.
 4. **Enthusiast** — TV + streaming box + soundbar/receiver, wants scenes ("Movie night") across devices.
 
+## Device support
+
+**iPhone 12 and later**, iOS 17+, iPhone-only for V1 (`project.yml`: `TARGETED_DEVICE_FAMILY: "1"`,
+`deploymentTarget: 17.0`). iPhone 12 has no hardware/capability Relay needs and isn't excluded by
+anything in the app — the only thing that can exclude it is the OS floor, and iPhone 12 fully
+supports iOS 17 and later. Going lower than iOS 17 would only additionally reach iPhone 12 owners
+who haven't updated their OS in years, at the cost of dropping `@Observable`/`@Bindable` (iOS 17+),
+which `AppState`/`AppSettings` and every Settings screen are built on. Not worth it unless real
+install data ever shows meaningful demand stuck below iOS 17. iPad is a one-line flip
+(`TARGETED_DEVICE_FAMILY: "1,2"`) once there are iPad screenshots to submit alongside it.
+
 ## Non-goals (V1)
 
 - No infrared control — iPhones have no IR emitter; do not claim or imply IR support.
