@@ -11,6 +11,11 @@ counts below are the actual length of the text as written.
 | **Subtitle** | `No ads. No weekly paywall.` | 26 / 30 |
 | **Bundle ID** | `com.relay.app.Relay` | — |
 | **SKU** | `relay-ios-001` | — |
+| **Apple app ID** | `6793481049` | — |
+
+Registered 2026-07-21 — the name was accepted without a conflict. The Apple app ID is the numeric
+identifier in App Store Connect URLs (`/apps/6793481049/…`); it's what you'd use for App Store deep
+links and any App Store Connect API calls.
 | **Primary category** | Utilities | — |
 | **Secondary category** | Entertainment | — |
 | **Age rating** | 4+ | — |

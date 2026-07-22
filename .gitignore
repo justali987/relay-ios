@@ -25,5 +25,16 @@ xcuserdata/
 ## CocoaPods (not used, kept for safety if ever introduced)
 Pods/
 
+## Secrets — never commit these to a public repo
+# The App Store Connect API key (.p8) is a live credential: it authorizes uploading builds and
+# managing this developer account. It belongs outside the repo entirely (Codemagic stores its own
+# copy); these patterns exist so an accidental drop into the working tree can't be committed.
+# Same for signing certificates/profiles, which Codemagic manages via the API key anyway.
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+AuthKey_*
+
 ## Misc
 .DS_Store
