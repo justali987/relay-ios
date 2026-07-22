@@ -24,11 +24,14 @@ workflows:
 
     environment:
       xcode: latest
-      ios_signing:
-        # Codemagic fetches/creates the distribution certificate and provisioning profile for this
-        # bundle id using the API key above — no manual cert wrangling on your end.
-        distribution_type: app_store
-        bundle_identifier: com.relay.app.Relay
+      # No `ios_signing:` block here on purpose. That block uses Codemagic's implicit automatic
+      # signing, which only *fetches* an existing distribution profile and fails with
+      # "No matching profiles found for bundle identifier ... and distribution type app_store"
+      # when one doesn't exist yet — which is always true before the first build. The explicit
+      # `app-store-connect fetch-signing-files --create` step below creates the bundle id,
+      # distribution certificate and provisioning profile when they're missing, so the first build
+      # bootstraps itself. Keychain setup that `ios_signing` would have done implicitly is done
+      # explicitly in that same step.
       vars:
         BUNDLE_ID: "com.relay.app.Relay"
         XCODE_PROJECT: "Relay.xcodeproj"
@@ -59,8 +62,20 @@ workflows:
           # here should stop the build, not hide itself.
           set -e
           agvtool new-version -all "$BUILD_NUMBER"
-      - name: Set up code signing for the archive
+      - name: Fetch or create signing files, then set up code signing
         script: |
+          # --create makes this self-bootstrapping: if the bundle id isn't registered in the
+          # Developer Portal, or there's no App Store distribution certificate/profile yet, they get
+          # created via the App Store Connect API key. Requires that key to have the App Manager (or
+          # Admin) role — a Developer-role key can read but not create and will fail here.
+          set -e
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          # Put the fetched certificate into a keychain xcodebuild can see, then point the project's
+          # targets at the fetched profiles.
+          keychain initialize
+          keychain add-certificates
           xcode-project use-profiles
       - name: Build a signed IPA
         script: |
