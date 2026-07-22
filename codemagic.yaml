@@ -32,6 +32,14 @@ workflows:
       # distribution certificate and provisioning profile when they're missing, so the first build
       # bootstraps itself. Keychain setup that `ios_signing` would have done implicitly is done
       # explicitly in that same step.
+      groups:
+        # Codemagic environment variable group supplying CERTIFICATE_PRIVATE_KEY: the RSA private
+        # key the App Store distribution certificate is issued against. Add it in the Codemagic app's
+        # Environment variables tab, marked Secure, in a group named exactly `signing`.
+        # It must stay the SAME key across builds -- Apple issues a certificate against one specific
+        # key, and a certificate can't be reused without it. Generating a fresh key per build would
+        # mint a new certificate every run and hit Apple's 3-distribution-certificate account cap.
+        - signing
       vars:
         BUNDLE_ID: "com.relay.app.Relay"
         XCODE_PROJECT: "Relay.xcodeproj"
@@ -69,8 +77,12 @@ workflows:
           # created via the App Store Connect API key. Requires that key to have the App Manager (or
           # Admin) role — a Developer-role key can read but not create and will fail here.
           set -e
+          # --certificate-key is required whenever --create might actually create a certificate:
+          # Apple issues the certificate against a CSR generated from this private key, and without
+          # it the CLI fails with "Cannot save Signing Certificates without certificate private key".
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
             --create
           # Put the fetched certificate into a keychain xcodebuild can see, then point the project's
           # targets at the fetched profiles.
