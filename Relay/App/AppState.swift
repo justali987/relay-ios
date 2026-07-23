@@ -25,12 +25,15 @@ final class AppState {
     init(
         deviceStore: DeviceStore = DeviceStore(),
         tokenStore: KeychainTokenStore = KeychainTokenStore(),
-        adapterRegistry: AdapterRegistry = .makeDefault(),
+        adapterRegistry: AdapterRegistry? = nil,
         settings: AppSettings = AppSettings()
     ) {
         self.deviceStore = deviceStore
         self.tokenStore = tokenStore
-        self.adapterRegistry = adapterRegistry
+        // The default registry needs the same `tokenStore` the app persists to, so token-based
+        // adapters (Tizen today) read/write the one Keychain store — hence it's built here rather
+        // than as a default argument, which couldn't reference `tokenStore`.
+        self.adapterRegistry = adapterRegistry ?? .makeDefault(tokenStore: tokenStore)
         self.settings = settings
         self.hasCompletedOnboarding = settings.hasCompletedOnboarding
     }

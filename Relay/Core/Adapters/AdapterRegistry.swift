@@ -32,12 +32,16 @@ actor AdapterRegistry {
         Array(adaptersByBrand.values)
     }
 
-    static func makeDefault() -> AdapterRegistry {
+    /// Builds the production registry. `tokenStore` is threaded into the adapters that persist a
+    /// pairing credential (Tizen's WebSocket token today; webOS/Android TV as they land) so pairing
+    /// and command-time reconnection can read/write the Keychain without each adapter owning its own
+    /// store. Roku and the mock need no token and ignore it.
+    static func makeDefault(tokenStore: KeychainTokenStore) -> AdapterRegistry {
         AdapterRegistry(adapters: [
             MockAdapter(),
             RokuAdapter(),
             WebOSAdapter(),
-            TizenAdapter(),
+            TizenAdapter(tokenStore: tokenStore),
             AndroidTVAdapter(),
             FireTVAdapter(),
             AppleTVAdapter(),

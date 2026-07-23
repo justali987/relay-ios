@@ -89,6 +89,17 @@ enum DeviceBrand: String, Codable, Sendable, CaseIterable, Identifiable {
         self == .fireTV
     }
 
+    /// Whether pairing this brand requires the user to physically accept an "Allow this device?"
+    /// prompt on the TV screen (no code to type). webOS and Tizen work this way; the pairing UI
+    /// shows a "look at your TV" hint while it waits. Distinct from Android TV, which shows a numeric
+    /// PIN the user types back into the phone (handled by the PairingSheet code field instead).
+    var requiresOnScreenApproval: Bool {
+        switch self {
+        case .lgWebOS, .samsungTizen: true
+        default: false
+        }
+    }
+
     /// Whether this brand has a real, working `DeviceAdapter` in the current build — distinct from
     /// `isControlSupported`, which is about platform *feasibility* (Apple TV is never controllable
     /// no matter the engineering effort). LG/Samsung/Google TV/Fire TV are architecturally
@@ -97,8 +108,8 @@ enum DeviceBrand: String, Codable, Sendable, CaseIterable, Identifiable {
     /// doomed pairing attempt for a brand where this is `false`.
     var isImplemented: Bool {
         switch self {
-        case .roku, .mock: true
-        case .lgWebOS, .samsungTizen, .googleTV, .fireTV, .appleTV: false
+        case .roku, .samsungTizen, .mock: true
+        case .lgWebOS, .googleTV, .fireTV, .appleTV: false
         }
     }
 }

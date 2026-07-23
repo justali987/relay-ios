@@ -43,8 +43,19 @@ struct PairingSheet: View {
                             .frame(maxWidth: 160)
                     }
                 } else if isPairing {
-                    Text(verbatim: "Pairing with \(discovered.name)…")
-                        .font(.relayHeadline)
+                    VStack(spacing: RelaySpacing.sm) {
+                        Text(verbatim: "Pairing with \(discovered.name)…")
+                            .font(.relayHeadline)
+                            .multilineTextAlignment(.center)
+                        if discovered.brand.requiresOnScreenApproval {
+                            // webOS/Tizen show an "Allow this device?" prompt on the TV; without this
+                            // hint the user just sees a spinner and doesn't know to accept it.
+                            Text("Look at your TV and choose Allow if it asks to let Relay connect.")
+                                .font(.relaySubheadline)
+                                .foregroundStyle(Color.relayTextSecondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
                 }
 
                 if let errorMessage {

@@ -83,6 +83,14 @@ struct CompatibilityPageView: View {
         switch (brand, capability) {
         case (.roku, .colorKeys):
             "Not supported"
+        // Samsung's adapter drives keys over `SendRemoteKey`; text entry, app launch, input
+        // selection and touchpad use separate Tizen channels not implemented in this version, so the
+        // matrix must not claim them (see TizenAdapter's capability set).
+        case (.samsungTizen, .keyboardInput), (.samsungTizen, .appLaunch),
+             (.samsungTizen, .inputSelect), (.samsungTizen, .touchpad):
+            "Not supported"
+        case (.samsungTizen, .colorKeys):
+            "Supported"
         case (.roku, .powerOn), (.lgWebOS, .powerOn), (.samsungTizen, .powerOn):
             "Model-dependent"
         case (.googleTV, _), (.fireTV, _):
