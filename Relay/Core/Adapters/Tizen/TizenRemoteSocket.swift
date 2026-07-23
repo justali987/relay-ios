@@ -16,7 +16,7 @@ import Foundation
 ///
 /// Not `Sendable`: an instance is confined to `TizenAdapter`, which serialises access to it under a
 /// lock. Reference: the community-documented samsungtvws protocol.
-final class TizenRemoteSocket: NSObject, URLSessionWebSocketTaskDelegate {
+final class TizenRemoteSocket: NSObject, URLSessionDelegate {
     private let host: String
     private let useTLS: Bool
     private let token: String?
