@@ -165,13 +165,12 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
         guard status == errSecSuccess, let result else {
             throw IdentityError.identityLookupFailed(status)
         }
-        // `kSecClass: kSecClassIdentity` guarantees the Security framework hands back a `SecIdentity`
-        // here, but a conditional cast (rather than `as!`) keeps that assumption from becoming a
-        // crash if it's ever wrong.
-        guard let identity = result as? SecIdentity else {
-            throw IdentityError.identityLookupFailed(errSecSuccess)
-        }
-        return identity
+        // Plain `as`, not `as?`/`as!`: the compiler statically knows a CFTypeRef -> SecIdentity
+        // bridge always succeeds (this is a CoreFoundation-bridged opaque type, not a real class
+        // hierarchy downcast that could fail at runtime) and rejects the conditional form as
+        // pointless. `kSecClass: kSecClassIdentity` above is what actually guarantees this result IS
+        // an identity, not the cast itself.
+        return result as SecIdentity
     }
 
     // MARK: - Test support
