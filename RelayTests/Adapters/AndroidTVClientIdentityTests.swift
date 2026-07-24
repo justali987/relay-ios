@@ -18,9 +18,9 @@ final class AndroidTVClientIdentityTests: XCTestCase {
         super.tearDown()
     }
 
-    func testLoadOrCreateIdentityProducesAUsableIdentity() async throws {
+    func testLoadOrCreateIdentityProducesAUsableIdentity() throws {
         let store = AndroidTVClientIdentity()
-        let identity = try await store.loadOrCreateIdentity()
+        let identity = try store.loadOrCreateIdentity()
 
         var certificate: SecCertificate?
         let status = SecIdentityCopyCertificate(identity, &certificate)
@@ -33,9 +33,9 @@ final class AndroidTVClientIdentityTests: XCTestCase {
         XCTAssertNotNil(privateKey)
     }
 
-    func testCertificateDERIsNonEmptyAndParsesAsACertificate() async throws {
+    func testCertificateDERIsNonEmptyAndParsesAsACertificate() throws {
         let store = AndroidTVClientIdentity()
-        let der = try await store.certificateDER()
+        let der = try store.certificateDER()
 
         XCTAssertFalse(der.isEmpty)
         // Round-trips through SecCertificateCreateWithData, the same call the pairing handshake's
@@ -48,10 +48,10 @@ final class AndroidTVClientIdentityTests: XCTestCase {
     /// The identity is a long-lived pairing credential (see the type's header comment) — calling
     /// this twice must return the SAME certificate, not silently mint a second one and orphan every
     /// TV already paired against the first.
-    func testLoadOrCreateIsIdempotentAcrossCalls() async throws {
+    func testLoadOrCreateIsIdempotentAcrossCalls() throws {
         let store = AndroidTVClientIdentity()
-        let firstDER = try await store.certificateDER()
-        let secondDER = try await store.certificateDER()
+        let firstDER = try store.certificateDER()
+        let secondDER = try store.certificateDER()
         XCTAssertEqual(firstDER, secondDER)
     }
 }

@@ -20,7 +20,13 @@ import SwiftASN1
 /// add the matching certificate to the Keychain, and then a `kSecClassIdentity` query returns the
 /// pair correlated automatically, because the Keychain associates any certificate with a private key
 /// already present whose public key matches.
-actor AndroidTVClientIdentity {
+///
+/// A plain class, not an actor: every operation is a synchronous Keychain/Security call (the
+/// Keychain itself serialises concurrent access), there's no in-memory mutable state to protect, and
+/// `SecIdentity` isn't `Sendable` — returning it across an actor boundary is a Swift 6 concurrency
+/// error. `@unchecked Sendable` matches the same reasoning already used for `RokuAdapter` and
+/// `SSDPDiscoveryService`.
+final class AndroidTVClientIdentity: @unchecked Sendable {
     enum IdentityError: Error {
         case keyImportFailed(OSStatus)
         case keyPersistFailed(OSStatus)
@@ -159,9 +165,13 @@ actor AndroidTVClientIdentity {
         guard status == errSecSuccess, let result else {
             throw IdentityError.identityLookupFailed(status)
         }
-        // Force-cast is safe: `kSecClass: kSecClassIdentity` guarantees the Security framework hands
-        // back a `SecIdentity`, never another CF type.
-        return (result as! SecIdentity)
+        // `kSecClass: kSecClassIdentity` guarantees the Security framework hands back a `SecIdentity`
+        // here, but a conditional cast (rather than `as!`) keeps that assumption from becoming a
+        // crash if it's ever wrong.
+        guard let identity = result as? SecIdentity else {
+            throw IdentityError.identityLookupFailed(errSecSuccess)
+        }
+        return identity
     }
 
     // MARK: - Test support
