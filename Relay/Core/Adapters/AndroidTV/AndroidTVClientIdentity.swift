@@ -165,12 +165,15 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
         guard status == errSecSuccess, let result else {
             throw IdentityError.identityLookupFailed(status)
         }
-        // Plain `as`, not `as?`/`as!`: the compiler statically knows a CFTypeRef -> SecIdentity
-        // bridge always succeeds (this is a CoreFoundation-bridged opaque type, not a real class
-        // hierarchy downcast that could fail at runtime) and rejects the conditional form as
-        // pointless. `kSecClass: kSecClassIdentity` above is what actually guarantees this result IS
-        // an identity, not the cast itself.
-        return result as SecIdentity
+        // `as!` is the only spelling the compiler accepts for this CoreFoundation-bridged opaque
+        // type: `as?` is rejected as "will always succeed" (there's no runtime type tag for a
+        // checked cast to key off), and plain `as` is rejected as "not convertible" (no formal
+        // subtype relationship is registered between CFTypeRef and SecIdentity) -- both confirmed by
+        // the compiler across the last two CI runs. `kSecClass: kSecClassIdentity` above is what
+        // actually guarantees this result IS an identity; the force-cast is just how Swift's type
+        // system requires that guarantee to be spelled for a Sec* CF type.
+        // swiftlint:disable:next force_cast
+        return result as! SecIdentity
     }
 
     // MARK: - Test support
