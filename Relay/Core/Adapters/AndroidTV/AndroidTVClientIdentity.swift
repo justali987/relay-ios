@@ -1,6 +1,6 @@
 import Foundation
 import Security
-import Crypto
+import _CryptoExtras
 import X509
 import SwiftASN1
 
@@ -8,6 +8,12 @@ import SwiftASN1
 /// Android TV / Google TV device (the androidtvremote2 protocol pairs a *client identity*, not a
 /// per-TV credential — the same certificate is presented to, and remembered by, every TV you pair
 /// with, exactly like the official Android TV Remote app keeps one identity per installation).
+///
+/// The key MUST be RSA (2048-bit): the pairing handshake's secret derivation
+/// (`AndroidTVPairingSecret`) hashes both peers' certificate RSA modulus and exponent together with
+/// the on-screen PIN — verified against the real wire protocol via the open-source
+/// `androidtvremote2` Python implementation (tronikos/androidtvremote2), not guessed. An EC key (what
+/// this type used in an earlier version) has no modulus/exponent and cannot work here.
 ///
 /// Regenerating this certificate invalidates pairing with every previously-paired Android TV — each
 /// would need to be re-paired, because the TV recognizes *this specific certificate*, not a
@@ -50,7 +56,7 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
     }
 
     /// The DER bytes of this identity's certificate — needed by the pairing handshake, which hashes
-    /// both sides' raw certificate bytes together with the on-screen PIN.
+    /// both sides' certificate RSA modulus/exponent together with the on-screen PIN.
     func certificateDER() throws -> Data {
         let identity = try loadOrCreateIdentity()
         var certificate: SecCertificate?
@@ -64,7 +70,7 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
     // MARK: - Generation
 
     private static func generateAndStoreIdentity() throws {
-        let privateKey = P256.Signing.PrivateKey()
+        let privateKey = try _RSA.Signing.PrivateKey(keySize: .bits2048)
         let certificateDER = try makeSelfSignedCertificateDER(for: privateKey)
 
         let secKey = try importPrivateKey(privateKey)
@@ -83,7 +89,7 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
     /// storage, which fails with errSecMissingEntitlement (-34018) in CI's unsigned test build
     /// (CODE_SIGNING_ALLOWED=NO, see ios-ci.yml) — a properly signed real device is required, so that
     /// half is verified only by an on-device TestFlight pairing attempt, not by this test suite.
-    static func makeSelfSignedCertificateDER(for privateKey: P256.Signing.PrivateKey) throws -> Data {
+    static func makeSelfSignedCertificateDER(for privateKey: _RSA.Signing.PrivateKey) throws -> Data {
         let issuerKey = Certificate.PrivateKey(privateKey)
         let name = try DistinguishedName {
             CommonName("Relay")
@@ -98,7 +104,7 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
             notValidAfter: now.addingTimeInterval(86_400 * 365 * 10),
             issuer: name,
             subject: name,
-            signatureAlgorithm: .ecdsaWithSHA256,
+            signatureAlgorithm: .sha256WithRSAEncryption,
             extensions: Certificate.Extensions {
                 Critical(BasicConstraints.notCertificateAuthority)
             },
@@ -110,18 +116,20 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
         return Data(serializer.serializedBytes)
     }
 
-    /// Imports a raw swift-crypto private key into the Keychain as a `SecKey`, in the ANSI X9.63
-    /// format (`0x04 || X || Y || private scalar`) that `SecKeyCreateWithData` expects for an EC key
-    /// — this is exactly what `P256.Signing.PrivateKey.x963Representation` produces.
-    private static func importPrivateKey(_ privateKey: P256.Signing.PrivateKey) throws -> SecKey {
+    /// Imports a raw swift-crypto RSA private key into the Keychain as a `SecKey`. `derRepresentation`
+    /// on `_RSA.Signing.PrivateKey` is the PKCS#1 `RSAPrivateKey` DER encoding, which is what
+    /// `SecKeyCreateWithData` expects for `kSecAttrKeyType: kSecAttrKeyTypeRSA` (mirroring how the
+    /// EC version of this type relied on `x963Representation` matching what `SecKeyCreateWithData`
+    /// expects for an EC key — same Apple-interop contract, different key algebra).
+    private static func importPrivateKey(_ privateKey: _RSA.Signing.PrivateKey) throws -> SecKey {
         let attributes: [String: Any] = [
-            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
             kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
-            kSecAttrKeySizeInBits as String: 256,
+            kSecAttrKeySizeInBits as String: 2048,
         ]
         var error: Unmanaged<CFError>?
         guard let secKey = SecKeyCreateWithData(
-            privateKey.x963Representation as CFData, attributes as CFDictionary, &error
+            privateKey.derRepresentation as CFData, attributes as CFDictionary, &error
         ) else {
             // CFError doesn't carry an OSStatus directly; -50 (errSecParam) reflects "bad input" in
             // spirit, which is the only realistic failure mode for a key we just generated ourselves.
@@ -176,9 +184,7 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
         // type: `as?` is rejected as "will always succeed" (there's no runtime type tag for a
         // checked cast to key off), and plain `as` is rejected as "not convertible" (no formal
         // subtype relationship is registered between CFTypeRef and SecIdentity) -- both confirmed by
-        // the compiler across the last two CI runs. `kSecClass: kSecClassIdentity` above is what
-        // actually guarantees this result IS an identity; the force-cast is just how Swift's type
-        // system requires that guarantee to be spelled for a Sec* CF type.
+        // the compiler in an earlier round of this same file's development.
         // swiftlint:disable:next force_cast
         return result as! SecIdentity
     }

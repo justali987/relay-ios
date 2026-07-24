@@ -108,8 +108,8 @@ enum DeviceBrand: String, Codable, Sendable, CaseIterable, Identifiable {
     /// doomed pairing attempt for a brand where this is `false`.
     var isImplemented: Bool {
         switch self {
-        case .roku, .samsungTizen, .mock: true
-        case .lgWebOS, .googleTV, .fireTV, .appleTV: false
+        case .roku, .samsungTizen, .googleTV, .mock: true
+        case .lgWebOS, .fireTV, .appleTV: false
         }
     }
 }

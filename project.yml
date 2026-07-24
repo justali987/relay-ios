@@ -78,6 +78,15 @@ targets:
         product: X509
       - package: SwiftCrypto
         product: Crypto
+      # RSA key generation. Deliberately a SEPARATE swift-crypto product, not part of `Crypto`:
+      # CryptoKit (which `Crypto` maps to on Apple platforms) has no RSA support at all -- Apple
+      # never added it, since RSA isn't part of CryptoKit's supported algorithm set. `_CryptoExtras`
+      # is swift-crypto's own (non-CryptoKit-backed) implementation, needed because
+      # androidtvremote2's pairing handshake authenticates using the client certificate's RSA
+      # modulus/exponent (see AndroidTVClientIdentity) -- an EC key, used in the first attempt at
+      # this adapter, has no modulus/exponent and cannot work here.
+      - package: SwiftCrypto
+        product: _CryptoExtras
 
   RelayTests:
     type: bundle.unit-test

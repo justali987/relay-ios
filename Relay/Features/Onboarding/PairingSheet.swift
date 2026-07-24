@@ -36,7 +36,15 @@ struct PairingSheet: View {
                             .font(.relayHeadline)
                             .multilineTextAlignment(.center)
                         TextField("PIN", text: $code)
-                            .keyboardType(.numberPad)
+                            // Android TV's PIN is 6 HEX characters (can include A-F), not purely
+                            // numeric -- .numberPad would make a letter physically un-typable.
+                            // .asciiCapable covers both that and Mock's plain-digit test PINs.
+                            .keyboardType(.asciiCapable)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                            .onChange(of: code) { _, newValue in
+                                code = String(newValue.uppercased().filter(\.isHexDigit).prefix(6))
+                            }
                             .multilineTextAlignment(.center)
                             .font(.relayTitle)
                             .textFieldStyle(.roundedBorder)

@@ -1,10 +1,11 @@
 import XCTest
 import Security
-import Crypto
+import _CryptoExtras
 @testable import Relay
 
 /// Exercises `AndroidTVClientIdentity`'s certificate generation — the X.509/swift-certificates half
-/// of the identity plumbing (see that type's header comment for the full design).
+/// of the identity plumbing (see that type's header comment for the full design, including why the
+/// key must be RSA).
 ///
 /// Deliberately does NOT exercise the Keychain-persistence half (`loadOrCreateIdentity()`,
 /// `certificateDER()`): those call `SecItemAdd` with `kSecAttrIsPermanent: true` for a `SecKey`,
@@ -16,7 +17,8 @@ import Crypto
 /// covers the part that doesn't require that.
 final class AndroidTVClientIdentityTests: XCTestCase {
     func testGeneratesNonEmptyParsableCertificateDER() throws {
-        let der = try AndroidTVClientIdentity.makeSelfSignedCertificateDER(for: P256.Signing.PrivateKey())
+        let key = try _RSA.Signing.PrivateKey(keySize: .bits2048)
+        let der = try AndroidTVClientIdentity.makeSelfSignedCertificateDER(for: key)
 
         XCTAssertFalse(der.isEmpty)
         // Round-trips through the same call the pairing handshake will use to parse a peer's
@@ -25,13 +27,28 @@ final class AndroidTVClientIdentityTests: XCTestCase {
         XCTAssertNotNil(certificate)
     }
 
-    /// Each call signs over a different random public key (and, incidentally, a random serial number
-    /// and signature nonce too — normal, harmless X.509 behavior), so two independently generated
-    /// keys must never produce identical certificate bytes. This would also fail (usefully) if
-    /// generation were somehow ignoring its `privateKey` argument.
+    /// Each call signs over a different random key (and, incidentally, a random serial number and
+    /// signature padding too — normal, harmless X.509 behavior), so two independently generated
+    /// 2048-bit keys must never produce identical certificate bytes. This would also fail (usefully)
+    /// if generation were somehow ignoring its `privateKey` argument.
     func testDistinctKeysProduceDistinctCertificates() throws {
-        let firstDER = try AndroidTVClientIdentity.makeSelfSignedCertificateDER(for: P256.Signing.PrivateKey())
-        let secondDER = try AndroidTVClientIdentity.makeSelfSignedCertificateDER(for: P256.Signing.PrivateKey())
+        let firstKey = try _RSA.Signing.PrivateKey(keySize: .bits2048)
+        let secondKey = try _RSA.Signing.PrivateKey(keySize: .bits2048)
+        let firstDER = try AndroidTVClientIdentity.makeSelfSignedCertificateDER(for: firstKey)
+        let secondDER = try AndroidTVClientIdentity.makeSelfSignedCertificateDER(for: secondKey)
         XCTAssertNotEqual(firstDER, secondDER)
+    }
+
+    /// The pairing handshake's secret derivation needs the RSA modulus and exponent out of a
+    /// certificate (see `AndroidTVRSAKeyInfo`). Confirms that extraction actually works against a
+    /// certificate this type produces, and that the modulus is full-width (2048 bits => 256 bytes,
+    /// after stripping any DER sign-padding byte) rather than accidentally truncated.
+    func testCertificateYieldsExtractableRSAModulusAndExponent() throws {
+        let key = try _RSA.Signing.PrivateKey(keySize: .bits2048)
+        let der = try AndroidTVClientIdentity.makeSelfSignedCertificateDER(for: key)
+
+        let info = try AndroidTVRSAKeyInfo.extract(fromCertificateDER: der)
+        XCTAssertEqual(info.modulus.count, 256)
+        XCTAssertFalse(info.exponent.isEmpty)
     }
 }

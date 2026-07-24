@@ -91,9 +91,18 @@ struct CompatibilityPageView: View {
             "Not supported"
         case (.samsungTizen, .colorKeys):
             "Supported"
-        case (.roku, .powerOn), (.lgWebOS, .powerOn), (.samsungTizen, .powerOn):
+        // Android TV's adapter sends RemoteKeyInject over the remote-control channel; text entry
+        // (a separate IME channel), app launch (its own message type) and input selection aren't
+        // implemented in this version, matching Tizen's same scoping reasoning. Touchpad has no
+        // equivalent in the RemoteKeyCode enum at all.
+        case (.googleTV, .keyboardInput), (.googleTV, .appLaunch),
+             (.googleTV, .inputSelect), (.googleTV, .touchpad):
+            "Not supported"
+        case (.googleTV, .colorKeys):
+            "Supported"
+        case (.roku, .powerOn), (.lgWebOS, .powerOn), (.samsungTizen, .powerOn), (.googleTV, .powerOn):
             "Model-dependent"
-        case (.googleTV, _), (.fireTV, _):
+        case (.fireTV, _):
             "Model-dependent"
         case (_, .colorKeys):
             "Model-dependent"
