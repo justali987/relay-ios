@@ -76,7 +76,14 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
     /// deliberately long (10 years): this certificate IS the pairing credential, so it should outlive
     /// any reasonable reinstall-free lifetime of the app rather than silently expiring and forcing
     /// every paired TV to be re-paired.
-    private static func makeSelfSignedCertificateDER(for privateKey: P256.Signing.PrivateKey) throws -> Data {
+    ///
+    /// `internal`, not `private`: this is the one piece of `AndroidTVClientIdentity` that
+    /// `AndroidTVClientIdentityTests` can actually exercise in CI. The rest (`SecKeyCreateWithData`,
+    /// persisting to the Keychain, the `kSecClassIdentity` query) needs `kSecAttrIsPermanent: true`
+    /// storage, which fails with errSecMissingEntitlement (-34018) in CI's unsigned test build
+    /// (CODE_SIGNING_ALLOWED=NO, see ios-ci.yml) — a properly signed real device is required, so that
+    /// half is verified only by an on-device TestFlight pairing attempt, not by this test suite.
+    static func makeSelfSignedCertificateDER(for privateKey: P256.Signing.PrivateKey) throws -> Data {
         let issuerKey = Certificate.PrivateKey(privateKey)
         let name = try DistinguishedName {
             CommonName("Relay")
@@ -174,15 +181,5 @@ final class AndroidTVClientIdentity: @unchecked Sendable {
         // system requires that guarantee to be spelled for a Sec* CF type.
         // swiftlint:disable:next force_cast
         return result as! SecIdentity
-    }
-
-    // MARK: - Test support
-
-    /// Removes every Keychain item this type owns. Not used in production — only by
-    /// `AndroidTVClientIdentityTests` so repeated test runs start from a clean slate instead of
-    /// silently reusing a certificate a previous run generated.
-    static func deleteAllForTesting() {
-        SecItemDelete([kSecClass as String: kSecClassKey, kSecAttrApplicationTag as String: keyTag] as CFDictionary)
-        SecItemDelete([kSecClass as String: kSecClassCertificate, kSecAttrLabel as String: label] as CFDictionary)
     }
 }
