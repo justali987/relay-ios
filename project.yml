@@ -16,6 +16,17 @@ configs:
   Debug: debug
   Release: release
 
+packages:
+  # Apple's X.509 + crypto libraries, used only by the Android TV adapter to mint the self-signed
+  # client certificate its pairing protocol (androidtvremote2) requires. iOS ships no high-level API
+  # to create an X.509 certificate, so these fill that gap. Both are first-party Apple SPM packages.
+  SwiftCertificates:
+    url: https://github.com/apple/swift-certificates.git
+    from: 1.6.0
+  SwiftCrypto:
+    url: https://github.com/apple/swift-crypto.git
+    from: 3.0.0
+
 targets:
   Relay:
     type: application
@@ -35,11 +46,12 @@ targets:
         # Bonjour browse). Plain-language, per Apple TN3179 and App Review guidance — see
         # docs/08-launch-runbook.md.
         NSLocalNetworkUsageDescription: "Relay uses your local Wi-Fi to find and control compatible TVs in your home. Your commands stay on your network."
-        # No NSBonjourServices entry: Roku (the only real adapter) uses SSDP, which needs no Bonjour
-        # declaration. AndroidTVAdapter.discover() is still a stub that never actually browses
-        # `_androidtvremote2._tcp` — declaring a service type nothing browses is an App Review
-        # over-declaration flag (docs/07-implementation-plan.md milestone 8 covers real adapters).
-        # Add it back here the same day AndroidTVAdapter starts really browsing that service.
+        # AndroidTVAdapter.discover() browses this service type via BonjourDiscoveryService to find
+        # Android TV / Google TV devices advertising the androidtvremote2 pairing+control protocol.
+        # Must be declared here or NWBrowser silently finds nothing on device (App Review also flags
+        # an undeclared browsed service type) — see docs/07-implementation-plan.md milestone 8.
+        NSBonjourServices:
+          - "_androidtvremote2._tcp."
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
@@ -59,6 +71,13 @@ targets:
         # without this, agvtool silently fails to bump CFBundleVersion and every TestFlight upload
         # after the first is rejected as a duplicate build number.
         VERSIONING_SYSTEM: "apple-generic"
+    dependencies:
+      # Only the Android TV pairing handshake needs these — it mints a self-signed X.509 client
+      # certificate itself (Roku/Tizen need no client cert at all).
+      - package: SwiftCertificates
+        product: X509
+      - package: SwiftCrypto
+        product: Crypto
 
   RelayTests:
     type: bundle.unit-test
