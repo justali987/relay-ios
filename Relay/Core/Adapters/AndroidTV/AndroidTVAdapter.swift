@@ -23,7 +23,10 @@ final class AndroidTVAdapter: DeviceAdapter, @unchecked Sendable {
     private static let controlPort: UInt16 = 6466
     private static let handshakeTimeoutSeconds: Double = 15
 
-    private final class PairingSession {
+    /// Immutable (both stored properties are `let`) and holds only Sendable values — the
+    /// `@unchecked Sendable` connection and plain `Data` — so it's safe to capture in the
+    /// `@Sendable` timeout closures in `finishPairing`. Same pattern as this file's other boxes.
+    private final class PairingSession: @unchecked Sendable {
         let connection: AndroidTVConnection
         let serverCertificateDER: Data
         init(connection: AndroidTVConnection, serverCertificateDER: Data) {

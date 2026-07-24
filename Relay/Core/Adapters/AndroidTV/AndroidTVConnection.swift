@@ -33,6 +33,23 @@ final class AndroidTVConnection: @unchecked Sendable {
         func get() -> Data? { lock.withLock { value } }
     }
 
+    /// A one-shot latch shared with the `@Sendable` state-update handler below. Swift 6 forbids
+    /// mutating a plain captured `var` from concurrently-executing code, so the "resume the
+    /// continuation exactly once" guard lives here behind a lock instead: `claim()` returns `true`
+    /// only for the first caller, ensuring the checked continuation is resumed a single time even
+    /// though `.ready`/`.failed` states can arrive on the connection queue in quick succession.
+    private final class ResumeLatch: @unchecked Sendable {
+        private let lock = NSLock()
+        private var claimed = false
+        func claim() -> Bool {
+            lock.withLock {
+                if claimed { return false }
+                claimed = true
+                return true
+            }
+        }
+    }
+
     private let connection: NWConnection
     private let certificateBox: CertificateBox
 
@@ -70,19 +87,19 @@ final class AndroidTVConnection: @unchecked Sendable {
     /// set by the time this returns.
     func connectAndCapturePeerCertificate() async throws -> Data {
         try await withCheckedThrowingContinuation { continuation in
-            var resumed = false
+            let latch = ResumeLatch()
             connection.stateUpdateHandler = { [weak self] state in
-                guard let self, !resumed else { return }
+                guard let self else { return }
                 switch state {
                 case .ready:
-                    resumed = true
+                    guard latch.claim() else { return }
                     if let der = self.certificateBox.get() {
                         continuation.resume(returning: der)
                     } else {
                         continuation.resume(throwing: ConnectionError.handshakeFailed)
                     }
                 case .failed, .cancelled:
-                    resumed = true
+                    guard latch.claim() else { return }
                     continuation.resume(throwing: ConnectionError.handshakeFailed)
                 default:
                     break
